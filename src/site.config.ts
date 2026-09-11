@@ -35,7 +35,7 @@ export const site = {
     name: 'Kodus',
     url: 'https://kodus.io',
     /** Rendered verbatim in the footer. */
-    line: 'Maintained by',
+    line: 'Sponsored by',
   },
   /** Header nav. Keep it short; every entry is a page that must exist. */
   nav: [

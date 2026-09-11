@@ -15,7 +15,7 @@ export async function GET() {
   const lines: string[] = [
     `# ${site.name}`,
     '',
-    `> ${site.description} Maintained by ${site.maintainer.name} (${site.maintainer.url}); methodology and funding stated at ${SITE_URL}/about/.`,
+    `> ${site.description} Sponsored by ${site.maintainer.name} (${site.maintainer.url}); funding and method stated at ${SITE_URL}/about/.`,
     '',
     'Every blog post is also available as raw markdown by appending `.md` to its URL, and the full content of the site is in /llms-full.txt.',
   ];

@@ -8,7 +8,7 @@ export async function GET() {
   const sections: string[] = [
     `# ${site.name}: full content`,
     '',
-    `> ${site.description} Maintained by ${site.maintainer.name} (${site.maintainer.url}); methodology at ${SITE_URL}/about/.`,
+    `> ${site.description} Sponsored by ${site.maintainer.name} (${site.maintainer.url}); funding and method stated at ${SITE_URL}/about/.`,
     '',
   ];
 
