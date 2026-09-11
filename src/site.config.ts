@@ -15,7 +15,7 @@ export const site = {
   wordmark: 'agentwrotethis',
   /** One line, used as the default meta description and in WebSite schema. */
   description:
-    'What changes in code review once agents write most of the code. Field notes and tool comparisons, with the source for every claim.',
+    'What changes in code review once agents write most of the code. Field notes from teams doing it, with the source linked for every claim.',
   /** Footer line, the site in one sentence. */
   footerLine: 'Notes on reviewing code an agent wrote.',
   /** Shown on the blog byline when a post does not name an author. */

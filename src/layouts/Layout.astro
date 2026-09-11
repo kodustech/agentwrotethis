@@ -50,6 +50,13 @@ const ogImage = site.ogImage;
 		<!-- Schema.org JSON-LD -->
 		<script type="application/ld+json" set:html={JSON.stringify({
 			"@context": "https://schema.org",
+			"@type": "Organization",
+			"name": site.maintainer.name,
+			"url": site.maintainer.url,
+			"description": `Publisher of ${site.name}.`
+		})} />
+		<script type="application/ld+json" set:html={JSON.stringify({
+			"@context": "https://schema.org",
 			"@type": "WebSite",
 			"name": site.name,
 			"url": site.url,
