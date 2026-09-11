@@ -1,0 +1,14 @@
+---
+title: "Pipeline check"
+description: "A throwaway post used once to confirm that a POST to the content API lands as a commit in the repository and rebuilds the site. Removed right after."
+pubDate: 2026-09-11
+category: "guide"
+tags: ["meta"]
+faq:
+  - q: "Is this permanent?"
+    a: "No. It is removed as soon as the check passes."
+---
+
+This post exists to prove the publishing path works end to end, and it will be deleted as soon as that is confirmed.
+
+The sequence under test: the API receives the request, checks the bearer token, writes the markdown file into the repository through the GitHub API, and that commit triggers a rebuild of the static site.
