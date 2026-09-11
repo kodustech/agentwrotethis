@@ -1,0 +1,136 @@
+---
+import '../styles/global.css';
+import { site } from '../site.config';
+
+interface Props {
+	title: string;
+	description?: string;
+	breadcrumbs?: Array<{ name: string; url: string }>;
+	ogType?: 'website' | 'article';
+	article?: { pubDate: Date; updatedDate?: Date; tags?: string[] };
+	schemas?: Record<string, unknown>[];
+}
+
+const canonicalURL = new URL(Astro.url.pathname, site.url);
+const { title, description = site.description, breadcrumbs, ogType = 'website', article, schemas = [] } = Astro.props;
+const ogImage = site.ogImage;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="canonical" href={canonicalURL.href} />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+
+		<!-- Open Graph -->
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content={ogType} />
+		<meta property="og:url" content={canonicalURL.href} />
+		{article && <meta property="article:published_time" content={article.pubDate.toISOString()} />}
+		{article?.updatedDate && <meta property="article:modified_time" content={article.updatedDate.toISOString()} />}
+		{article?.tags?.map((tag) => <meta property="article:tag" content={tag} />)}
+		<meta property="og:site_name" content={site.name} />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+
+		<!-- Schema.org JSON-LD -->
+		<script type="application/ld+json" set:html={JSON.stringify({
+			"@context": "https://schema.org",
+			"@type": "WebSite",
+			"name": site.name,
+			"url": site.url,
+			"description": site.description,
+			"publisher": {
+				"@type": "Organization",
+				"name": site.maintainer.name,
+				"url": site.maintainer.url
+			}
+		})} />
+		{breadcrumbs && (
+			<script type="application/ld+json" set:html={JSON.stringify({
+				"@context": "https://schema.org",
+				"@type": "BreadcrumbList",
+				"itemListElement": breadcrumbs.map((item, i) => ({
+					"@type": "ListItem",
+					"position": i + 1,
+					"name": item.name,
+					"item": item.url
+				}))
+			})} />
+		)}
+		{schemas.map((schema) => (
+			<script type="application/ld+json" set:html={JSON.stringify({ "@context": "https://schema.org", ...schema })} />
+		))}
+		<link rel="alternate" type="application/rss+xml" title={`${site.rssTitle} blog`} href="/rss.xml" />
+
+		<!-- Fonts: Space Grotesk & JetBrains Mono -->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+		{site.gaMeasurementId && (
+			<>
+				<script async src={`https://www.googletagmanager.com/gtag/js?id=${site.gaMeasurementId}`}></script>
+				<script is:inline define:vars={{ gaId: site.gaMeasurementId }}>
+					window.dataLayer = window.dataLayer || [];
+					function gtag(){dataLayer.push(arguments);}
+					gtag('js', new Date());
+					gtag('config', gaId);
+				</script>
+			</>
+		)}
+	</head>
+	<body class="min-h-dvh flex flex-col">
+		<header class="border-b border-stone-200 dark:border-zinc-800 bg-stone-50/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
+			<div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+				<a href="/" class="font-mono text-sm tracking-tight font-bold text-stone-900 dark:text-zinc-100 lowercase">
+					{site.wordmark}
+				</a>
+				<nav class="flex items-center gap-5 md:gap-6">
+					{site.nav.map((item) => (
+						<a href={item.href} class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">{item.label}</a>
+					))}
+				</nav>
+			</div>
+		</header>
+
+		<main class="flex-1 w-full max-w-4xl mx-auto px-6 py-16 md:py-24">
+			<slot />
+		</main>
+
+		<footer class="border-t border-stone-200 dark:border-zinc-800 py-12 mt-auto bg-stone-100 dark:bg-zinc-900">
+			<div class="max-w-4xl mx-auto px-6">
+				<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+					<div>
+						<p class="text-sm text-stone-500 dark:text-zinc-400 font-mono">
+							{site.footerLine}
+						</p>
+						<p class="text-xs text-stone-400 dark:text-zinc-500 mt-2 text-pretty">
+							{site.maintainer.line} <a href={site.maintainer.url} target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-stone-600 dark:hover:text-zinc-300 transition-colors">{site.maintainer.name}</a> · <a href="/about" class="underline underline-offset-2 hover:text-stone-600 dark:hover:text-zinc-300 transition-colors">About this site</a>
+						</p>
+					</div>
+					<div class="flex gap-4">
+						<a href="/blog" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">Blog</a>
+						<a href="/tools" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">Tools</a>
+						<a href="/rss.xml" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">RSS</a>
+						<a href="/about" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">About</a>
+					</div>
+				</div>
+			</div>
+		</footer>
+	</body>
+</html>

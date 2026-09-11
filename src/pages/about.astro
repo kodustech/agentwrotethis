@@ -1,0 +1,45 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { site } from '../site.config';
+
+const title = "About, methodology and who pays for this | agentwrotethis.dev";
+const description = "What agentwrotethis.dev is, how claims about review tools get verified, and who maintains the site.";
+---
+
+<Layout title={title} description={description}>
+	<section class="max-w-3xl">
+		<h1 class="text-stone-500 dark:text-zinc-500 font-mono tracking-widest uppercase text-sm mb-4">
+			About this site
+		</h1>
+		<h2 class="text-4xl md:text-6xl font-extrabold tracking-tighter text-balance text-stone-900 dark:text-zinc-50 mb-10 font-sans leading-none">
+			Who writes this,<br/>and who pays for it.
+		</h2>
+
+		<div class="prose dark:prose-invert prose-stone max-w-none prose-headings:font-bold prose-a:text-stone-900 dark:prose-a:text-zinc-100 prose-a:underline-offset-4 prose-p:text-pretty prose-p:leading-relaxed">
+			<p>
+				agentwrotethis.dev covers one question: <strong>what has to change in review, testing and approval once agents write most of the code?</strong> Generation got fast. The work of deciding whether a change is correct moved downstream and landed on the people who understand the system. That is the subject.
+			</p>
+
+			<h3>How claims get checked</h3>
+			<p>
+				Every factual claim about a tool, meaning pricing, licensing, self-hosting and which git platforms it supports, is read from the vendor's own pricing page, documentation or public repository, and stamped with the date it was checked. When something cannot be confirmed from a primary source, the page says unknown rather than guessing. Benchmark numbers published by a vendor are attributed to that vendor and labelled as theirs.
+			</p>
+			<p>
+				There are no star ratings here. Prices move every month, so a page that is more than a few weeks past its last-verified date should be treated as stale, and you should click through to the source.
+			</p>
+
+			<h3>Who maintains it</h3>
+			<p>
+				This site is built and paid for by the team at <a href={site.maintainer.url} rel="noopener">{site.maintainer.name}</a>, who make an open source code reviewer. That is said here, in the footer of every page, and inline in any post where their product shows up as an option.
+			</p>
+			<p>
+				What that means in practice: their tool is held to the same fields as everyone else's, including an honest "unknown" where their own docs do not back a claim, and every fact about every tool on this site links to a source you can open yourself. Read it with that in mind, and check the work. The site is <a href="https://github.com/kodustech/agentwrotethis" rel="noopener">open source on GitHub</a>.
+			</p>
+
+			<h3>Corrections</h3>
+			<p>
+				Found a stale price or a claim that is wrong? <a href="https://github.com/kodustech/agentwrotethis/issues" rel="noopener">Open an issue</a>. Corrections ship quickly and every page shows when it was last verified.
+			</p>
+		</div>
+	</section>
+</Layout>
