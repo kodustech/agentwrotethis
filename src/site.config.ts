@@ -39,8 +39,7 @@ export const site = {
   },
   /** Header nav. Keep it short; every entry is a page that must exist. */
   nav: [
-    { label: 'Blog', href: '/blog' },
-    { label: 'Tools', href: '/tools' },
+    { label: 'Writing', href: '/blog' },
     { label: 'About', href: '/about' },
   ],
 } as const;

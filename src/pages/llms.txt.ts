@@ -1,5 +1,4 @@
 import { getPublishedPosts, SITE_URL, CATEGORY_LABELS } from '../lib/blog';
-import { getTools } from '../lib/tools';
 import { site } from '../site.config';
 
 // llms.txt — index of the site for LLMs/AI agents (https://llmstxt.org)
@@ -21,13 +20,6 @@ export async function GET() {
     'Every blog post is also available as raw markdown by appending `.md` to its URL, and the full content of the site is in /llms-full.txt.',
   ];
 
-  const tools = await getTools();
-  if (tools.length > 0) {
-    lines.push('', '## Tools directory', '');
-    for (const tool of tools) {
-      lines.push(`- [${tool.data.name}](${SITE_URL}/tools/${tool.id}/): ${tool.data.tagline}`);
-    }
-  }
 
   for (const [category, list] of byCategory) {
     lines.push('', `## Blog: ${CATEGORY_LABELS[category] ?? category}`, '');
