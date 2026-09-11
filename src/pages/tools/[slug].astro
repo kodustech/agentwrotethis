@@ -20,7 +20,7 @@ const specRows = [
 	{ label: 'Category', value: TOOL_CATEGORY_LABELS[tool.data.category] ?? tool.data.category },
 	{ label: 'Open source', value: tool.data.openSource ? `Yes (${tool.data.license})` : 'No' },
 	{ label: 'Pricing', value: tool.data.pricing, href: tool.data.pricingUrl.startsWith('http') ? tool.data.pricingUrl : undefined },
-	{ label: 'Self-hosted', value: SELF_HOSTED_LABELS[tool.data.selfHosted] + (tool.data.selfHostedNote ? ` — ${tool.data.selfHostedNote}` : '') },
+	{ label: 'Self-hosted', value: SELF_HOSTED_LABELS[tool.data.selfHosted] + (tool.data.selfHostedNote ? `. ${tool.data.selfHostedNote}` : '') },
 	{ label: 'Platforms', value: tool.data.platforms.join(', ') || 'unknown' },
 	{ label: 'Model control', value: tool.data.modelControl },
 	{ label: 'Last verified', value: tool.data.lastVerified },
@@ -46,7 +46,7 @@ const specRows = [
 	}]}
 >
 	<div class="mb-12">
-		<a href="/tools" class="text-sm font-mono tracking-widest text-stone-500 dark:text-zinc-500 uppercase hover:text-stone-900 dark:hover:text-zinc-100 transition-colors inline-flex items-center gap-2 mb-10">
+		<a href="/tools" class="text-sm text-stone-500 dark:text-zinc-500 hover:text-coral-600 dark:hover:text-coral-400 transition-colors inline-flex items-center gap-2 mb-10">
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
 			All Tools
 		</a>
@@ -56,7 +56,7 @@ const specRows = [
 				{tool.data.name}
 			</h1>
 			{tool.id === SPONSOR_SLUG && (
-				<span class="text-[10px] font-mono uppercase tracking-widest px-2 py-1 border border-stone-300 dark:border-zinc-700 text-stone-500 dark:text-zinc-500">Sponsor</span>
+				<span class="text-[11px] px-2 py-1 border border-stone-300 dark:border-zinc-700 text-stone-500 dark:text-zinc-500">Sponsor</span>
 			)}
 		</div>
 		<p class="text-lg md:text-xl text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed max-w-3xl mb-6">
@@ -68,15 +68,15 @@ const specRows = [
 	</div>
 
 	<section class="mb-16">
-		<h2 class="text-sm font-mono tracking-widest text-stone-500 dark:text-zinc-500 uppercase mb-6">[ Facts ]</h2>
+		<h2 class="rubric mb-6">Facts</h2>
 		<dl class="border-t border-stone-200 dark:border-zinc-800">
 			{specRows.map((row) => (
 				<div class="grid grid-cols-1 md:grid-cols-4 gap-1 md:gap-6 py-4 border-b border-stone-200 dark:border-zinc-800">
-					<dt class="text-xs font-mono uppercase tracking-widest text-stone-500 dark:text-zinc-500 pt-1">{row.label}</dt>
+					<dt class="text-xs text-stone-500 dark:text-zinc-500 pt-1">{row.label}</dt>
 					<dd class="md:col-span-3 text-stone-800 dark:text-zinc-200 text-pretty">
 						{row.value}
 						{row.href && (
-							<a href={row.href} target="_blank" rel="noopener noreferrer" class="ml-2 text-xs font-mono text-stone-500 dark:text-zinc-500 underline underline-offset-2 hover:text-stone-900 dark:hover:text-zinc-100">source</a>
+							<a href={row.href} target="_blank" rel="noopener noreferrer" class="ml-2 text-xs text-coral-600 dark:text-coral-400 underline underline-offset-2">source</a>
 						)}
 					</dd>
 				</div>
@@ -86,7 +86,7 @@ const specRows = [
 
 	{related.length > 0 && (
 		<section class="mb-16">
-			<h2 class="text-sm font-mono tracking-widest text-stone-500 dark:text-zinc-500 uppercase mb-8">[ In our coverage ]</h2>
+			<h2 class="rubric mb-8">In our coverage</h2>
 			<div class="grid md:grid-cols-2 gap-8">
 				{related.map((r) => (
 					<a href={`/blog/${r.id}`} class="block group">
@@ -103,7 +103,7 @@ const specRows = [
 			<p class="font-bold text-stone-900 dark:text-zinc-100 mb-1">Evaluating {tool.data.name}?</p>
 			<p class="text-sm text-stone-500 dark:text-zinc-400">Run it through the two-week trial protocol before you commit.</p>
 		</div>
-		<a href="/blog/how-to-evaluate-ai-code-review-tools" class="bg-stone-900 dark:bg-zinc-100 text-stone-50 dark:text-zinc-900 font-bold px-6 py-4 uppercase tracking-widest text-xs hover:bg-stone-800 dark:hover:bg-zinc-200 transition-colors text-center w-full md:w-auto">
+		<a href="/blog/how-to-evaluate-ai-code-review-tools" class="border border-stone-400 dark:border-zinc-600 text-stone-800 dark:text-zinc-200 px-6 py-3 text-sm hover:border-coral-600 hover:text-coral-600 dark:hover:border-coral-400 dark:hover:text-coral-400 transition-colors text-center w-full md:w-auto">
 			Evaluation Guide [↗]
 		</a>
 	</div>

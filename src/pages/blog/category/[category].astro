@@ -15,7 +15,7 @@ const { category } = Astro.params;
 const { posts } = Astro.props;
 const label = CATEGORY_LABELS[category!] ?? category;
 
-const title = `${label} — AI Code Review Blog | agentwrotethis.dev`;
+const title = `${label} | agentwrotethis.dev`;
 const description = `${label} for AI code review tools: in-depth, engineer-written posts benchmarked against the 2026 AI Code Review Standard.`;
 ---
 
@@ -29,11 +29,11 @@ const description = `${label} for AI code review tools: in-depth, engineer-writt
 	]}
 >
 	<section class="max-w-3xl mb-16">
-		<a href="/blog" class="text-sm font-mono tracking-widest text-stone-500 dark:text-zinc-500 uppercase hover:text-stone-900 dark:hover:text-zinc-100 transition-colors inline-flex items-center gap-2 mb-8">
+		<a href="/blog" class="text-sm text-stone-500 dark:text-zinc-500 hover:text-coral-600 dark:hover:text-coral-400 transition-colors inline-flex items-center gap-2 mb-8">
 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
 			All Posts
 		</a>
-		<h1 class="text-4xl md:text-6xl font-extrabold tracking-tighter text-balance text-stone-900 dark:text-zinc-50 leading-none">
+		<h1 class="font-normal text-balance text-stone-900 dark:text-zinc-50 leading-none">
 			{label}
 		</h1>
 	</section>
@@ -41,7 +41,7 @@ const description = `${label} for AI code review tools: in-depth, engineer-writt
 	<section class="space-y-12">
 		{posts.map((post) => (
 			<article class="border-t border-stone-200 dark:border-zinc-800 pt-10 group">
-				<div class="flex items-center gap-4 mb-3 text-xs font-mono uppercase tracking-widest text-stone-500 dark:text-zinc-500">
+				<div class="flex items-center gap-3 mb-3 text-xs text-stone-500 dark:text-zinc-500">
 					<time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
 					<span>{readingTime(post.body)} min read</span>
 				</div>

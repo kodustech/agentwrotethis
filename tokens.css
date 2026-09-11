@@ -1,0 +1,45 @@
+/* Hallmark tokens · agentwrotethis.dev
+ * genre: modern-minimal · theme: Coral · macrostructure: Index-First
+ * Portable: copy this file into a sibling project and every utility resolves.
+ */
+:root {
+  /* One family, two cuts. Geist for everything read, Geist Mono for anything
+     that is data: dates, counts, versions, code. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Paper to ink, warm grey. */
+  --color-stone-50: oklch(98.6% 0.003 60);
+  --color-stone-100: oklch(96.8% 0.004 60);
+  --color-stone-200: oklch(93.4% 0.005 60);
+  --color-stone-300: oklch(88.5% 0.006 60);
+  --color-stone-400: oklch(72% 0.008 60);
+  --color-stone-500: oklch(58% 0.009 60);
+  --color-stone-600: oklch(46% 0.009 60);
+  --color-stone-700: oklch(36% 0.008 60);
+  --color-stone-800: oklch(28% 0.008 60);
+  --color-stone-900: oklch(21% 0.008 60);
+
+  /* Night. Warm-neutral, not blue-black. */
+  --color-zinc-50: oklch(96% 0.004 60);
+  --color-zinc-100: oklch(92% 0.005 60);
+  --color-zinc-200: oklch(86% 0.005 60);
+  --color-zinc-300: oklch(78% 0.006 60);
+  --color-zinc-400: oklch(65% 0.008 60);
+  --color-zinc-500: oklch(53% 0.009 60);
+  --color-zinc-600: oklch(41% 0.009 60);
+  --color-zinc-700: oklch(31% 0.008 60);
+  --color-zinc-800: oklch(24% 0.007 60);
+  --color-zinc-900: oklch(18% 0.006 60);
+  --color-zinc-950: oklch(14% 0.005 60);
+
+  /* The single signal. Links, the active row, the focus ring. Never a flood. */
+  --color-coral-600: oklch(55% 0.17 32);
+  --color-coral-500: oklch(63% 0.17 32);
+  --color-coral-400: oklch(72% 0.15 32);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+
+  --text-display: clamp(2rem, 3.6vw + 0.9rem, 3.1rem);
+}

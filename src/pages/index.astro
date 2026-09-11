@@ -1,95 +1,60 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getPublishedPosts, CATEGORY_LABELS, formatDate, SITE_URL } from '../lib/blog';
-import { getTools } from '../lib/tools';
-import { site } from '../site.config';
+import { getPublishedPosts, CATEGORY_LABELS } from '../lib/blog';
 
-const latestPosts = (await getPublishedPosts()).slice(0, 5);
-const toolCount = (await getTools()).length;
+const posts = await getPublishedPosts();
 
-const title = "Engineering with coding agents | agentwrotethis.dev";
+// Grouped by year, newest first. A blog index is a chronology, not a feed of cards.
+const byYear = new Map<number, typeof posts>();
+for (const post of posts) {
+	const y = post.data.pubDate.getFullYear();
+	byYear.set(y, [...(byYear.get(y) ?? []), post]);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+
+const fmtDay = (d: Date) =>
+	d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', timeZone: 'UTC' });
+
+const title = "agentwrotethis.dev";
 ---
 
 <Layout title={title}>
-	<section class="max-w-3xl mb-24 lg:mb-32">
-		<h1 class="text-stone-500 dark:text-zinc-500 font-mono tracking-widest uppercase text-sm mb-4">
-			Engineering with coding agents
-		</h1>
-		<h2 class="text-5xl md:text-7xl font-extrabold tracking-tighter text-balance text-stone-900 dark:text-zinc-50 mb-6 font-sans leading-none">
-			The agent wrote it.<br/>
-			<span class="text-stone-400 dark:text-zinc-600">Now who reads it?</span>
-		</h2>
-		<p class="text-xl md:text-2xl text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed mb-12">
-			Generating code got cheap. Deciding whether it is correct did not. This site is about the part that did not get cheaper: review, tests and the approvals a change has to pass before it ships.
+	<section class="mb-16 max-w-[62ch]">
+		<p class="text-lg text-stone-700 dark:text-zinc-300 leading-relaxed text-pretty">
+			Notes on reviewing code an agent mostly wrote. What breaks in the workflow, what other teams are publishing about their own review load, and which tools hold up when you check the claim.
 		</p>
+	</section>
 
-		<div class="border-l-4 border-stone-900 dark:border-zinc-100 pl-6 py-2 bg-stone-100/50 dark:bg-zinc-900/50">
-			<p class="text-lg font-medium text-stone-800 dark:text-zinc-200 text-pretty">
-				Written for the people who carry that load: tech leads, platform teams and whoever ends up reviewing a four hundred file pull request on a Friday.
+	{years.map((year) => (
+		<section class="mb-14">
+			<h2 class="rubric mb-4">{year}</h2>
+			<ul class="border-t border-stone-200 dark:border-zinc-800">
+				{byYear.get(year)!.map((post) => (
+					<li class="border-b border-stone-200 dark:border-zinc-800">
+						<a href={`/blog/${post.id}`} class="group block py-4 sm:grid sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:gap-6">
+							<time class="meta block sm:pt-[3px]" datetime={post.data.pubDate.toISOString()}>
+								{fmtDay(post.data.pubDate)}
+							</time>
+							<div class="min-w-0">
+								<h3 class="text-[17px] font-medium text-stone-900 dark:text-zinc-100 group-hover:text-coral-600 dark:group-hover:text-coral-400 transition-colors mt-1 sm:mt-0">
+									{post.data.title}
+								</h3>
+								<p class="text-[15px] text-stone-600 dark:text-zinc-400 mt-1 text-pretty leading-relaxed">
+									{post.data.description}
+								</p>
+							</div>
+						</a>
+					</li>
+				))}
+			</ul>
+		</section>
+	))}
+
+	{posts.length === 0 && (
+		<section class="border-t border-stone-200 dark:border-zinc-800 pt-6">
+			<p class="text-stone-600 dark:text-zinc-400">
+				Nothing published yet. The first notes are being written. <a href="/rss.xml" class="text-coral-600 dark:text-coral-400 underline">The feed</a> is live if you want them when they land.
 			</p>
-		</div>
-	</section>
-
-	<section class="border-t border-stone-200 dark:border-zinc-800 pt-16 mb-24">
-		<h2 class="text-sm font-mono tracking-widest text-stone-500 dark:text-zinc-500 uppercase mb-8">
-			What is here
-		</h2>
-		<div class="grid md:grid-cols-2 gap-10 max-w-3xl">
-			<div>
-				<h3 class="text-xl font-bold text-stone-900 dark:text-zinc-100 mb-2">Field notes</h3>
-				<p class="text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed">
-					What teams publish about their own review load after adopting agents, with the post and the date, so you can read the source instead of our summary of it.
-				</p>
-			</div>
-			<div>
-				<h3 class="text-xl font-bold text-stone-900 dark:text-zinc-100 mb-2">Tool comparisons</h3>
-				<p class="text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed">
-					{toolCount} review tools with platform support, pricing and self-hosting checked against the vendor's own pages, each stamped with the date it was last verified.
-				</p>
-			</div>
-		</div>
-		<p class="mt-8">
-			<a href="/tools" class="text-sm font-mono uppercase tracking-widest px-5 py-3 border border-stone-300 dark:border-zinc-700 text-stone-700 dark:text-zinc-300 hover:bg-stone-100 dark:hover:bg-zinc-900 transition-colors inline-block">
-				Browse the tools
-			</a>
-		</p>
-	</section>
-
-	<section class="border-t border-stone-200 dark:border-zinc-800 pt-16">
-		<h2 class="text-sm font-mono tracking-widest text-stone-500 dark:text-zinc-500 uppercase mb-10">
-			Latest
-		</h2>
-		<div class="space-y-12">
-			{latestPosts.map((post) => (
-				<article class="group">
-					<div class="flex items-center gap-4 mb-3 text-xs font-mono uppercase tracking-widest text-stone-500 dark:text-zinc-500">
-						<span>[ {CATEGORY_LABELS[post.data.category] ?? post.data.category} ]</span>
-						<time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
-					</div>
-					<h3 class="text-2xl font-bold tracking-tight text-balance text-stone-900 dark:text-zinc-100 mb-2 group-hover:underline decoration-stone-300 dark:decoration-zinc-700 underline-offset-4">
-						<a href={`/blog/${post.id}`}>{post.data.title}</a>
-					</h3>
-					<p class="text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed max-w-3xl">
-						{post.data.description}
-					</p>
-				</article>
-			))}
-			{latestPosts.length === 0 && (
-				<p class="text-stone-500 dark:text-zinc-500 font-mono">Nothing published yet. First batch is being written.</p>
-			)}
-		</div>
-		{latestPosts.length > 0 && (
-			<p class="mt-12">
-				<a href="/blog" class="text-sm font-mono uppercase tracking-widest text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 underline underline-offset-4">
-					All posts
-				</a>
-			</p>
-		)}
-	</section>
-
-	<section class="border-t border-stone-200 dark:border-zinc-800 pt-10 mt-24">
-		<p class="text-sm text-stone-500 dark:text-zinc-400 text-pretty max-w-3xl leading-relaxed">
-			This site is maintained by <a href={site.maintainer.url} class="underline underline-offset-2">{site.maintainer.name}</a>, who build an open source code reviewer. That is stated on every page and inline anywhere their product appears in a comparison. How facts get checked, and what that funding does and does not buy, is on the <a href="/about" class="underline underline-offset-2">about page</a>.
-		</p>
-	</section>
+		</section>
+	)}
 </Layout>

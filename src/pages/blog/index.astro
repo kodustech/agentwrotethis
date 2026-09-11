@@ -5,7 +5,7 @@ import { getPublishedPosts, CATEGORY_LABELS, readingTime, formatDate, SITE_URL }
 const posts = await getPublishedPosts();
 const categories = [...new Set(posts.map((p) => p.data.category))];
 
-const title = "Blog | agentwrotethis.dev";
+const title = "Writing | agentwrotethis.dev";
 const description = "Comparisons, alternatives and evaluation guides for code review tools, for teams where agents write most of the code.";
 ---
 
@@ -24,46 +24,38 @@ const description = "Comparisons, alternatives and evaluation guides for code re
 		"publisher": { "@type": "Organization", "name": "agentwrotethis.dev", "url": `${SITE_URL}/about/` }
 	}]}
 >
-	<section class="max-w-3xl mb-16">
-		<h1 class="text-stone-500 dark:text-zinc-500 font-mono tracking-widest uppercase text-sm mb-4">
-			The Blog
-		</h1>
-		<h2 class="text-4xl md:text-6xl font-extrabold tracking-tighter text-balance text-stone-900 dark:text-zinc-50 mb-6 font-sans leading-none">
-			Comparisons, guides and evaluations.
-		</h2>
-		<p class="text-lg md:text-xl text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed">
-			What we find testing review tools, plus what other teams publish about their own review load. Every claim links to its source.
+	<section class="mb-12 max-w-[62ch]">
+		<h1 class="text-2xl font-medium text-stone-900 dark:text-zinc-100 mb-3">Everything, newest first</h1>
+		<p class="text-stone-600 dark:text-zinc-400 leading-relaxed text-pretty">
+			Filter by kind if you are after something specific. Every claim about a tool links to the page it came from.
 		</p>
 	</section>
 
 	{categories.length > 1 && (
-		<nav class="flex flex-wrap gap-3 mb-16" aria-label="Blog categories">
+		<nav class="flex flex-wrap gap-x-5 gap-y-2 mb-10 text-[15px]" aria-label="Categories">
 			{categories.map((cat) => (
-				<a href={`/blog/category/${cat}`} class="text-xs font-mono uppercase tracking-widest px-4 py-2 border border-stone-300 dark:border-zinc-700 text-stone-600 dark:text-zinc-400 hover:bg-stone-100 dark:hover:bg-zinc-900 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">
+				<a href={`/blog/category/${cat}`} class="text-stone-500 dark:text-zinc-500 hover:text-coral-600 dark:hover:text-coral-400 transition-colors">
 					{CATEGORY_LABELS[cat] ?? cat}
 				</a>
 			))}
 		</nav>
 	)}
 
-	<section class="space-y-12">
+	<ul class="border-t border-stone-200 dark:border-zinc-800">
 		{posts.map((post) => (
-			<article class="border-t border-stone-200 dark:border-zinc-800 pt-10 group">
-				<div class="flex items-center gap-4 mb-3 text-xs font-mono uppercase tracking-widest text-stone-500 dark:text-zinc-500">
-					<span>[ {CATEGORY_LABELS[post.data.category] ?? post.data.category} ]</span>
-					<time datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
-					<span>{readingTime(post.body)} min read</span>
-				</div>
-				<h3 class="text-2xl md:text-3xl font-bold tracking-tight text-balance text-stone-900 dark:text-zinc-100 mb-3 group-hover:underline decoration-stone-300 dark:decoration-zinc-700 underline-offset-4">
-					<a href={`/blog/${post.id}`}>{post.data.title}</a>
-				</h3>
-				<p class="text-stone-600 dark:text-zinc-400 text-pretty leading-relaxed max-w-3xl">
-					{post.data.description}
-				</p>
-			</article>
+			<li class="border-b border-stone-200 dark:border-zinc-800">
+				<a href={`/blog/${post.id}`} class="group block py-4 sm:grid sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:gap-6">
+					<time class="meta block sm:pt-[3px]" datetime={post.data.pubDate.toISOString()}>{formatDate(post.data.pubDate)}</time>
+					<div class="min-w-0">
+						<h2 class="text-[17px] font-medium text-stone-900 dark:text-zinc-100 group-hover:text-coral-600 dark:group-hover:text-coral-400 transition-colors mt-1 sm:mt-0">{post.data.title}</h2>
+						<p class="text-[15px] text-stone-600 dark:text-zinc-400 mt-1 text-pretty leading-relaxed">{post.data.description}</p>
+					</div>
+				</a>
+			</li>
 		))}
-		{posts.length === 0 && (
-			<p class="text-stone-500 dark:text-zinc-500 font-mono">Nothing published yet. First batch is being written.</p>
-		)}
-	</section>
+	</ul>
+
+	{posts.length === 0 && (
+		<p class="text-stone-600 dark:text-zinc-400 pt-6">Nothing published yet. The first notes are being written.</p>
+	)}
 </Layout>

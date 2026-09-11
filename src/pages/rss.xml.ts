@@ -5,7 +5,7 @@ import { getPublishedPosts } from '../lib/blog';
 export async function GET(context: APIContext) {
   const posts = await getPublishedPosts();
   return rss({
-    title: 'agentwrotethis.dev — engineering with coding agents',
+    title: 'agentwrotethis.dev',
     description: 'Comparisons, alternatives, and evaluation guides for AI code review tools, benchmarked against the 2026 AI Code Review Standard.',
     site: context.site!,
     items: posts.map((post) => ({

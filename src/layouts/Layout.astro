@@ -77,10 +77,10 @@ const ogImage = site.ogImage;
 		))}
 		<link rel="alternate" type="application/rss+xml" title={`${site.rssTitle} blog`} href="/rss.xml" />
 
-		<!-- Fonts: Space Grotesk & JetBrains Mono -->
+		<!-- One family, two cuts -->
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+		<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
 
 		{site.gaMeasurementId && (
 			<>
@@ -95,42 +95,27 @@ const ogImage = site.ogImage;
 		)}
 	</head>
 	<body class="min-h-dvh flex flex-col">
-		<header class="border-b border-stone-200 dark:border-zinc-800 bg-stone-50/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-50">
-			<div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-				<a href="/" class="font-mono text-sm tracking-tight font-bold text-stone-900 dark:text-zinc-100 lowercase">
+		<header class="w-full max-w-3xl mx-auto px-6 pt-10 pb-2">
+			<div class="flex items-baseline justify-between gap-6">
+				<a href="/" class="text-[15px] font-medium tracking-tight text-stone-900 dark:text-zinc-100 hover:text-coral-600 dark:hover:text-coral-400 transition-colors">
 					{site.wordmark}
 				</a>
-				<nav class="flex items-center gap-5 md:gap-6">
+				<nav class="flex items-center gap-5 text-[15px]">
 					{site.nav.map((item) => (
-						<a href={item.href} class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">{item.label}</a>
+						<a href={item.href} class="text-stone-500 dark:text-zinc-500 hover:text-coral-600 dark:hover:text-coral-400 transition-colors">{item.label}</a>
 					))}
 				</nav>
 			</div>
 		</header>
 
-		<main class="flex-1 w-full max-w-4xl mx-auto px-6 py-16 md:py-24">
+		<main class="flex-1 w-full max-w-3xl mx-auto px-6 pt-12 pb-24">
 			<slot />
 		</main>
 
-		<footer class="border-t border-stone-200 dark:border-zinc-800 py-12 mt-auto bg-stone-100 dark:bg-zinc-900">
-			<div class="max-w-4xl mx-auto px-6">
-				<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-					<div>
-						<p class="text-sm text-stone-500 dark:text-zinc-400 font-mono">
-							{site.footerLine}
-						</p>
-						<p class="text-xs text-stone-400 dark:text-zinc-500 mt-2 text-pretty">
-							{site.maintainer.line} <a href={site.maintainer.url} target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-stone-600 dark:hover:text-zinc-300 transition-colors">{site.maintainer.name}</a> · <a href="/about" class="underline underline-offset-2 hover:text-stone-600 dark:hover:text-zinc-300 transition-colors">About this site</a>
-						</p>
-					</div>
-					<div class="flex gap-4">
-						<a href="/blog" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">Blog</a>
-						<a href="/tools" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">Tools</a>
-						<a href="/rss.xml" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">RSS</a>
-						<a href="/about" class="text-sm font-medium text-stone-600 dark:text-zinc-400 hover:text-stone-900 dark:hover:text-zinc-100 transition-colors">About</a>
-					</div>
-				</div>
-			</div>
+		<footer class="w-full max-w-3xl mx-auto px-6 pb-14">
+			<p class="border-t border-stone-200 dark:border-zinc-800 pt-6 text-sm text-stone-500 dark:text-zinc-500 text-pretty">
+				{site.footerLine} {site.maintainer.line} <a href={site.maintainer.url} rel="noopener" class="text-coral-600 dark:text-coral-400 underline">{site.maintainer.name}</a>. <a href="/about" class="underline hover:text-coral-600 dark:hover:text-coral-400">How this is written and checked</a>. <a href="/rss.xml" class="underline hover:text-coral-600 dark:hover:text-coral-400">RSS</a>.
+			</p>
 		</footer>
 	</body>
 </html>

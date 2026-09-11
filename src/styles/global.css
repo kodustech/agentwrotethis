@@ -1,13 +1,130 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4
+ * genre: modern-minimal · macrostructure: Index-First (post index)
+ * theme: Coral · enrichment: none (typography only) · nav: N1 · footer: Ft2
+ * tone: technical, quiet · anchor hue: coral (warm, ~32°)
+ *
+ * Sibling constraint: aicodereview.io runs Space Grotesk + JetBrains Mono on
+ * cool neutral grey with a black accent and a brutalist, bracketed, uppercase
+ * register. This site is the opposite register on purpose: neutral modern sans
+ * throughout, warm paper, one coral signal, no uppercase chrome, no slabs.
+ *
+ * Colour and type are redefined against the `stone-*` / `zinc-*` scales rather
+ * than in the markup, so utility classes keep working while the site reads as
+ * its own publication. Every token is named; nothing is inlined at the call site.
+ */
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  /* One family, two cuts. Geist for everything read, Geist Mono for anything
+     that is data: dates, counts, versions, code. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Paper to ink, warm grey. */
+  --color-stone-50: oklch(98.6% 0.003 60);
+  --color-stone-100: oklch(96.8% 0.004 60);
+  --color-stone-200: oklch(93.4% 0.005 60);
+  --color-stone-300: oklch(88.5% 0.006 60);
+  --color-stone-400: oklch(72% 0.008 60);
+  --color-stone-500: oklch(58% 0.009 60);
+  --color-stone-600: oklch(46% 0.009 60);
+  --color-stone-700: oklch(36% 0.008 60);
+  --color-stone-800: oklch(28% 0.008 60);
+  --color-stone-900: oklch(21% 0.008 60);
+
+  /* Night. Warm-neutral, not blue-black. */
+  --color-zinc-50: oklch(96% 0.004 60);
+  --color-zinc-100: oklch(92% 0.005 60);
+  --color-zinc-200: oklch(86% 0.005 60);
+  --color-zinc-300: oklch(78% 0.006 60);
+  --color-zinc-400: oklch(65% 0.008 60);
+  --color-zinc-500: oklch(53% 0.009 60);
+  --color-zinc-600: oklch(41% 0.009 60);
+  --color-zinc-700: oklch(31% 0.008 60);
+  --color-zinc-800: oklch(24% 0.007 60);
+  --color-zinc-900: oklch(18% 0.006 60);
+  --color-zinc-950: oklch(14% 0.005 60);
+
+  /* The single signal. Links, the active row, the focus ring. Never a flood. */
+  --color-coral-600: oklch(55% 0.17 32);
+  --color-coral-500: oklch(63% 0.17 32);
+  --color-coral-400: oklch(72% 0.15 32);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+
+  --text-display: clamp(2rem, 3.6vw + 0.9rem, 3.1rem);
 }
 
 @layer base {
+  /* Gate 34: no horizontal scroll at any width. `clip`, never `hidden`,
+     so position: sticky keeps working in descendants. */
+  html, body { overflow-x: clip; }
+
   body {
-    @apply antialiased bg-stone-50 text-stone-900 selection:bg-stone-300 selection:text-stone-900 dark:bg-zinc-950 dark:text-zinc-100 dark:selection:bg-zinc-800 dark:selection:text-zinc-100;
+    @apply antialiased bg-stone-50 text-stone-900 dark:bg-zinc-950 dark:text-zinc-100;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.021em;
+    text-wrap: balance;
+  }
+
+  /* Anything that is data rather than prose: dates, counts, versions. */
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    @apply text-stone-500 dark:text-zinc-500;
+  }
+
+  /* A quiet section label. Not uppercase: uppercase mono chrome is the
+     sibling site's voice, and the two must not rhyme. */
+  .rubric {
+    font-family: var(--font-mono);
+    @apply text-xs text-stone-500 dark:text-zinc-500;
+  }
+
+  /* Carried from the previous pass so existing markup keeps rendering; in this
+     theme there is one family, so UI text is simply the body face. */
+  .ui { font-family: var(--font-sans); }
+
+  a { text-underline-offset: 3px; }
+
+  .prose a,
+  a.accent {
+    @apply text-coral-600 dark:text-coral-400;
+    text-decoration-thickness: 1px;
+  }
+
+  /* Focus is instant and visible. Never animated. */
+  :focus-visible {
+    outline: 2px solid var(--color-coral-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Code is a first-class citizen on a site about reading diffs. */
+  .prose :where(code):not(:where(pre code)) {
+    @apply bg-stone-100 dark:bg-zinc-900 text-stone-800 dark:text-zinc-200 rounded-[3px] px-1 py-0.5 font-normal;
+    font-size: 0.875em;
+  }
+  .prose :where(code):not(:where(pre code))::before,
+  .prose :where(code):not(:where(pre code))::after { content: none; }
+  .prose :where(pre) {
+    @apply bg-stone-100 dark:bg-zinc-900 text-stone-800 dark:text-zinc-200 border border-stone-200 dark:border-zinc-800 rounded-md;
+    font-size: 0.875rem;
+    line-height: 1.65;
+  }
+  .prose :where(table) { font-size: 0.9375rem; }
+  .prose :where(th) { @apply text-stone-600 dark:text-zinc-400 font-medium; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
