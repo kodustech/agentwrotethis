@@ -15,9 +15,36 @@ export async function GET() {
   const lines: string[] = [
     `# ${site.name}`,
     '',
-    `> ${site.description} Sponsored by ${site.maintainer.name} (${site.maintainer.url}); funding and method stated at ${SITE_URL}/about/.`,
+    `> ${site.description}`,
     '',
-    'Every blog post is also available as raw markdown by appending `.md` to its URL, and the full content of the site is in /llms-full.txt.',
+    '## About',
+    '',
+    `${site.name} examines what needs to change in code review when agents write most of the code.`,
+    '',
+    '## Editorial policy',
+    '',
+    'Claims about tools and teams are checked against primary sources, including vendor documentation and original publications. When a claim cannot be confirmed from a primary source, it is labelled as unknown.',
+    '',
+    'Vendor benchmark results are attributed to the vendor. The site does not use star ratings. Changeable facts, such as pricing, should be checked against their linked primary source.',
+    '',
+    '## Funding and disclosure',
+    '',
+    `Sponsored by ${site.maintainer.name}: ${site.maintainer.url}`,
+    '',
+    `${site.maintainer.name} is held to the same evidence standard as every other product named on the site.`,
+    '',
+    `- Methodology and funding: ${SITE_URL}/about/`,
+    '- Source code: https://github.com/kodustech/agentwrotethis',
+    '- Corrections: https://github.com/kodustech/agentwrotethis/issues',
+    '',
+    '## Pages',
+    '',
+    `- Homepage: ${SITE_URL}/`,
+    `- Writing: ${SITE_URL}/blog/`,
+    `- About: ${SITE_URL}/about/`,
+    `- RSS feed: ${SITE_URL}/rss.xml`,
+    `- Sitemap: ${SITE_URL}/sitemap-index.xml`,
+    `- Full site content: ${SITE_URL}/llms-full.txt`,
   ];
 
 
@@ -28,6 +55,7 @@ export async function GET() {
     }
   }
 
+  lines.push('', 'Every blog post is also available as raw Markdown by appending `.md` to its canonical URL.');
   lines.push('');
   return new Response(lines.join('\n'), {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
