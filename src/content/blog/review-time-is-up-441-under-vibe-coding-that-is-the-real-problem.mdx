@@ -1,0 +1,23 @@
+---
+title: "Review time is up 441% under vibe coding. That is the real problem."
+description: "Field note on a peer-reviewed review reporting code-review time up +441% under AI-assisted development, and why the productivity number to watch is the one nobody markets."
+pubDate: 2026-09-12
+category: "explainer"
+tags: ["aicodereview", "vibecoding", "reviewbottleneck", "measurement"]
+---
+
+A state-of-the-art review of the first body of evidence on AI-assisted development was posted to arXiv on 20 Aug 2026. It is a preprint, not itself peer reviewed, though the field experiments it surveys are (Michels et al., arXiv:2608.20446). The number that matters for review is not in any vendor deck: team-level telemetry shows code-review time went up 441% under what the authors call vibe coding, the workflow where a developer describes intent and validates by running rather than reading the generated code.
+
+The review's productivity record is contradictory on purpose. Peer-reviewed field experiments report +26% more tasks per week. Independent randomised trials measure a 19% slowdown. The authors argue both are true once measurement method, scope, and horizon are held constant. Output volume is being conflated with productivity. Self-report diverges from independent measurement. Bold claims get walked back at longer horizons.
+
+This is the gap in most conversations about AI code review. Generation got fast. Deciding whether a change is correct did not, and the load moved to the people who understand the system.
+
+The authors add one falsifiable conjecture that accounts for most of the disagreement: the gains are real on new code and shrink or reverse on mature codebases. If that holds, the review problem is not worst at the moment of adoption. It is worst on the code that matters most, the mature system nobody wants to touch.
+
+Worth noting what the review does not settle. It reports reliable code generation but weak fault detection and documentation that is hard to audit. It documents code-quality degradation in telemetry and security failures in deployed applications. It does not name the tool that fixes review throughput, because no single tool is the object of the study.
+
+A reading note: the 441% is one number from one evidence survey, dated 20 Aug 2026. It is a useful anchor for the review-load conversation and the number I would cite first in a budget conversation. The direction is documented across multiple independent studies even if the exact magnitude drifts.
+
+Primary source: Michels, D.L., Abu Ghazaleh, M., Lazzari, F., Kassem, N., Klein, J., "Vibe Coding: Practice, Performance, Productivity, and Risk - A State-of-the-Art Review," arXiv:2608.20446v1, 20 Aug 2026. https://arxiv.org/abs/2608.20446
+
+Claims checked 2026-09-12.
