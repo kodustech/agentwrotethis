@@ -1,0 +1,25 @@
+---
+title: "Where AI review pays: the codebase matters more than volume"
+description: "The review bottleneck is not that there is more code. The gains from AI shrink on mature codebases, so where you spend review effort shifts."
+pubDate: 2026-09-13
+category: "explainer"
+tags: ["aicodereview", "codereview", "vibecoding"]
+---
+
+Field note. Claims checked as of 2026-09-12. Primary source: Michels et al., "Vibe Coding: Practice, Performance, Productivity, and Risk - A State-of-the-Art Review," arXiv:2608.20446, preprint, submitted 20 Aug 2026. Not peer reviewed. Link: https://arxiv.org/abs/2608.20446
+
+The question I keep getting is how a team can review the growing volume of AI-generated code. Most answers start with throughput: faster review tools, more automated checking, larger batches. That assumes the problem is volume. The review I read last week suggests the harder problem is placement, not volume.
+
+The paper's closing conjecture is that the gains from AI are real on new code and shrink or reverse on mature codebases. That claim is falsifiable, the authors say it would account for most of the disagreement in the record. It matters for review because of what it implies about where the risk sits.
+
+Think about what a team reviews. Greenfield work is mostly additive. New code goes in, the contract it has with the rest of the system is small. An agent that reasons locally around a new function often does fine there, and review effort per line is low because the blast radius is low.
+
+Mature codebases are the opposite. A change to a long-lived module touches callers, invariants, ordering, behavior that other code depends on. The part an agent cannot see from the diff is the thing that breaks: the stateful coupling, the edge case a long-gone author worked around. On that code, generation is fast and confident, and the reviewer has to carry the full mental model the generator did not build. Most fixes to mature code are exactly where validation is slowest.
+
+The practical reading is not that teams should review less. It is that review effort should be priced by code age and coupling, not by diff size. A small diff into a core module deserves a fuller reviewer than a large greenfield merge. If your review queue is flat, the AI redistribution is pushing more weight toward the expensive end and you are spending it on the new, cheap end.
+
+This is a single preprint's conjecture, not an established result. It is named falsifiable for a reason, and no shipped benchmark answers it yet. But it lines up with the telemetry in the same review: code-review time up 441% under vibe coding while output grows faster than the understanding needed to accept it.
+
+For a team running an actual pilot, the concrete next step is to separate review metrics by code age. Time in review per line on new files versus on files touched in the last release cycle. If the mature-code side is where the reviewer minutes concentrate, the conjecture is holding in your repo, and the plan should follow it: aim the human oversight at the coupled core, and let the cheaper review paths carry the additive work.
+
+One more caveat on the source itself: it is a preprint, not peer reviewed. Some of the studies it surveys are peer reviewed, and it says so where relevant. I am not treating the conjecture as established, only as the sharpest available model of where review attention should live.
