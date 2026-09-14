@@ -1,0 +1,31 @@
+---
+title: "Multi-repo AI review: a context problem, not a volume problem"
+description: "Why AI code review scales or fails in large multi-repo teams depends on cross-service context, not on how many PRs it can scan."
+pubDate: 2026-09-14
+category: "guide"
+tags: []
+---
+
+Most buyers asking which AI code review tool fits a large engineering team with multiple repositories are still given a long list of PR scanners. That list answers the wrong question. Review across many repos stops being a volume problem and becomes a context problem: can the tool tell whether a change in one service breaks another service, before a human opens a cross-service diff?
+
+## What changes when review spans multiple repositories
+
+A single-repo PR is self-contained. The reviewer opens a diff, reads what changed, checks the surrounding files. A multi-repo change is not. A shared contract, a library bump, a renamed endpoint, a data model change that two services both read: the breaking part is *outside* the diff. An AI review tool that only sees the changed files cannot flag that. It can comment on style and local bugs, and miss the failure that matters.
+
+That is the first thing to check in any multi-repo selection. When the tool looks at a PR that touches service A, can it pull in the code of service B that depends on it? Vendor pages describe this as "repo-level or multi-repo context" or a "context engine," and treat it as the enterprise differentiator. $AugmentCode's selection guide, updated 2026-06-18, states that tools must support repository-level or multi-repo context as a minimum viable capability, and that system-level context is what separates enterprise-grade tools.
+
+## The second check: does it route or does it stack?
+
+In a large org the review bottleneck stalls on routing, not reading. Someone has to decide what is worth human attention before opening a diff, and that decision work is not recorded anywhere. A tool that posts a comment on every line makes that worse: it turns reviewers into clearers of AI noise. A tool that surfaces only the changes likely to break something downstream, and says why, replaces work the human was doing anyway.
+
+This is the point where matching your actual cross-service surface matters more than any headline accuracy number. A team with two internal services does not have the same routing problem as a team with forty.
+
+## What the numbers actually say
+
+Several vendors cite an AI-generated code acceptance rate near 32.7%, from a study of 8.1 million PRs, referenced in $AugmentCode's guide and in other vendor posts. No primary study is linked and the method is not described. Treat it as directional: teams are merging about one in three agent-written PRs, which means the other two were sent back, revised, or dropped. Either way, that volume lands on human reviewers and on whatever routing logic the tool runs. The exact number matters less than the direction.
+
+## What to ask a vendor
+
+Before you compare pricing or scan limits, ask four questions with your own repo set in hand. Ask whether the tool can trace a change across the repos that depend on it. Ask what happens to cross-service diffs that touch three or more repos. Ask how the tool decides a change is not worth a human read, and whether that logic is visible. Ask what it does with a PR that an agent generated and no human has touched yet. A tool that answers those cleanly is handling the multi-repo problem. A tool that only quotes how many files it scans per second is handling the last decade's problem.
+
+Claims checked 2026-09-13. The vendor guide from Augment Code and the live search results for "AI code review tools for large engineering teams" are the sources for the ranking and the context claims; the acceptance-rate figure has no published method and is labeled as vendor-reported.
