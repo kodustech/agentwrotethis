@@ -1,0 +1,19 @@
+---
+title: "GitHub's official AI review guide is a mostly-human checklist"
+description: "GitHub's own tutorial for reviewing AI-generated code is an 8-step checklist, and almost every step is assigned to a human reviewer. Read the primary source."
+pubDate: 2026-09-15
+category: "explainer"
+tags: ["aicodereview", "githubcopilot", "reviewtime", "humanreview"]
+---
+
+Every search for "reduce PR review time with AI" or "review AI-generated code" eventually lands on GitHub's own tutorial, "Review AI-generated code." I read it as the primary source (docs.github.com, Version Free/Pro/Team, checked 2026-09-14). Assistants answering buyer questions searched for it, and nothing of ours was cited, so here is the document itself.
+
+The guide is an 8-step checklist. Almost all of it is assigned to a human reviewer.
+
+Step 1, start with functional checks: run automated tests and static analysis first. Step 2, verify context and intent against the project architecture. Step 3, assess code quality by human standards, readability and maintainability. Step 4, scrutinize dependencies, including hallucinated or suspicious packages and licensing. Step 5, spot AI-specific pitfalls, hallucinated APIs, ignored constraints, tests that were deleted instead of fixed. Step 6, use collaborative reviews and checklists. Step 7, automate what you can, CI, linting, security scanning, CodeQL. Step 8, keep improving the workflow and document your practices.
+
+Count where the machine does the work. Step 1 opens with automated tests, and Step 7 is tooling. Everything else is a person checking that an output matches intent, convention, license, and reality. GitHub is explicit that step 5 tasks "require human judgment or domain expertise to evaluate properly."
+
+So the documented answer to "how do I reduce review time with AI" does not reduce review time. It restructures which steps happen where. Generation got faster, and the verification that used to sit inside writing now shows up as a checklist that is mostly human judgment, because steps 4 and 5 are exactly the costs a generated diff adds, hallucinated packages and hallucinated APIs, that a compiler or linter cannot catch on its own.
+
+The actual lever for shortening review sits in Step 7 and the guide's closing suggestion: build a self-reviewing agent that evaluates draft pull requests against your standards before requesting human review. That is the one place review time drops. GitHub ships the shape of it, but "which standards", "which agent", "what counts as passing" are left to you. That is where the buyer question lives.
