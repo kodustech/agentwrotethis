@@ -1,0 +1,19 @@
+---
+title: "When review time plateaued, reviewers had stopped reading"
+description: "Salesforce's code volume rose 30% but review time on the largest PRs flattened. That plateau is a disengagement signal, not a throughput win."
+pubDate: 2026-09-16
+category: "explainer"
+tags: ["codereview", "aicodereview", "salesforce", "reviewvolume"]
+---
+
+Salesforce posted the number that most teams report, then said the part most teams leave out. In "Scaling Code Reviews: Adapting to a Surge in AI-Generated Code" (Ravi Boyapati and Shan Appajodu, published 2026-01-29), code volume rose about 30% after AI-assisted coding, and pull requests regularly crossed 20 files and 1,000 lines. Review latency climbed quarter over quarter. Then came the detail that reads like a win and is actually the warning: review time on the largest pull requests plateaued, and in places declined.
+
+That is not review getting faster. That is reviewers disengaging. Salesforce reads it the same way, writing that the plateau indicated "reviewers were no longer meaningfully engaging with changes." When effort for a thorough review exceeds its perceived value, review becomes surface-level validation. The authors call this a systems failure, not an individual one: the workflow stopped upholding its own guarantees.
+
+This is the answer to a buyer question that keeps getting answered with checklists. "How can engineering teams review the growing volume of AI-generated code?" does not have a checklist answer, because the failure mode is not that reviewers do too little work. It is that the review model stops supporting the reasoning a reviewer needs to do.
+
+Salesforce's response was to stop treating review as reading diffs. Its internal system, Prizm, reconstructs intent instead. Diffs get grouped by conceptual structure rather than file order, so a backend change and its UI counterpart are reviewed together. Context comes from work items, prior pull requests, and historical defects, surfaced progressively so attention goes where it matters. Human judgment stays at the center; the machine restores the second-pair-of-eyes property that file-by-file review lost under AI load.
+
+The transferable lesson is the metric. If your review time plateaus or falls while submitted volume rises, that is not efficiency. It is the moment the system starts approving code nobody fully understood. Watch that metric before you watch throughput, because throughput is what the tools market and the plateau is what the workflow actually did.
+
+Source: [Salesforce Engineering, Scaling Code Reviews: Adapting to a Surge in AI-Generated Code](https://engineering.salesforce.com/scaling-code-reviews-adapting-to-a-surge-in-ai-generated-code/). Figures as of the 2026-09 reading.
