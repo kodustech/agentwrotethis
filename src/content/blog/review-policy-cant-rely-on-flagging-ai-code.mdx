@@ -1,0 +1,21 @@
+---
+title: "Review policy can't rely on flagging AI code"
+description: "A developer tried to tell which of 102 F-Droid apps were LLM-generated and re-labeled 10% on a second pass. Detection is too weak to build review policy on."
+pubDate: 2026-09-18
+category: "explainer"
+tags: []
+---
+
+A developer reviewed the 102 apps in the September 12, 2026 F-Droid update batch and tried to sort them into "mostly AI", "mostly human", and "no signs of AI". The method was repo aesthetics: recent commits, agentic infrastructure in the project, branding. Then on a second pass the author re-categorized 9 to 10 apps toward the human side.
+
+The author's own preamble is the honest part. "There's no way to effectively detect slop," the post says, "so I propose a rough 3 tier system based on the aesthetics of the repo." The whole exercise is one person guessing from commit message style and whether a Claude Code or Codex harness is present.
+
+That is the sharpest available description of what detecting AI-generated code looks like when you have meaningful access. The author had the full repository, commit history, and project branding for every app, plus time to read each one. The result was a guess that visibly moved on re-review.
+
+Code review has far less. A reviewer sees a diff, not a repo history, and the meaningful decisions happen before anyone checks provenance.
+
+Teams keep asking whether they can review the growing volume of AI-generated code by identifying it first. Treat that part as the weak link. If you cannot reliably attribute provenance with repo access and commit history, you certainly cannot do it from a pull request diff. Any review pipeline that routes work based on "was this written by an agent" inherits the detector's error rate, and that error rate is high enough that the author of the detector walked ten percent of the labels back.
+
+The alternative is to stop making provenance the signal. Triage by what a change touches, how big it is, whether it crosses an interface boundary, whether it is reversible. Those are things a diff actually contains. Attribution is a question the diff does not answer.
+
+Source: tintotint.eu, "How much of F-Droid is LLM generated?", September 15, 2026, https://tintotint.eu/whacky-corner/f-droid_slop/. Claims checked September 2026.
