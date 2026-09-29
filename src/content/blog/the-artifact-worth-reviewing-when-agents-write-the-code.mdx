@@ -1,0 +1,49 @@
+---
+title: "The artifact worth reviewing when agents write the code"
+description: "When an agent produces a change, the thing a team can actually review is the workflow that produced it. What that looks like in practice, with primary sources."
+pubDate: 2026-09-29
+category: "explainer"
+tags: ["aicodereview", "agents", "codereviewprocess", "ci"]
+---
+
+GitHub's Security Lab reported 24 Android vulnerabilities found by an AI security agent, and the part worth copying is what ended up version-controlled. Not the exploit code. The [set of YAML taskflows](https://github.blog/security/how-we-found-24-android-vulnerabilities-using-our-open-source-ai-security-agent/) that guided the model through the audit, checked into a public repository, runnable by anyone with a Copilot license. The agent did the finding. The taskflows are the thing a team can read, diff, and argue about.
+
+That is a small shift with a large consequence for review. When a person writes a patch, the diff is a decent summary of the judgment that went into it, because the person held the reasoning and the code is the residue. When an agent writes the patch, the reasoning lives somewhere else entirely: a prompt, a rule file, a model version, a sequence of tool calls. Reviewing only the residue means reading the output of a process you never see.
+
+## The diff stops being the whole artifact
+
+Ian Bicking's post on [what a serious AI product would look like](https://blog.glyph.im/2026/09/serious-ai-product.html) puts the failure precisely. Checking for mistakes, he writes, is pushed off into code review, which encourages the author to hand the work to a reviewer without ever looking. He wants a two-column worksheet where every claim has a checkbox you only tick after you have verified it, and he notes that the vendors' own warning labels ("AI can make mistakes, double-check responses") are fine print designed to move responsibility onto the user.
+
+His complaint is about products. The same structure shows up in review. If the process that produced a change is invisible, then the reviewer becomes the only place where checking happens, and the volume of changes is exactly what makes that unworkable. The fix is not to ask reviewers to work harder. It is to make the process itself a reviewable object, so that some of the checking happens where it can be repeated instead of where it cannot.
+
+## What a reviewable workflow actually looks like
+
+The GitHub Security Lab agent is a concrete example. The taskflows are YAML files with names like `gather_mobile_entry_point_info.yaml` and `classify_application_local.yaml`. One splits entry points into mobile and non-mobile so the agent understands the right attack surface. Another enumerates vulnerability classes and asks the model to consider them against each entry point, so an intent-based entry point gets checked against known intent-based bug classes rather than whatever the model feels like noticing.
+
+The team also ran both a strict prompt and a broad prompt across multiple runs, because the model is non-deterministic. Output lands in a SQLite table with a `has_vulnerability` column you filter with a checkmark. There is a real cost attached, and the post is upfront about it: a GitHub Copilot license, premium model requests, many tool calls, and one to two hours on a medium-sized repository.
+
+Every one of those attributes is reviewable before you run anything. You can read the vulnerability class list and ask whether it covers your stack. You can see the run is repeated. You can see where the findings land and what they claim. Compare that with a code review comment that says "this looks suspicious" and moves on.
+
+Cloudflare's [CI-native reviewer](https://blog.cloudflare.com/ai-code-review/) takes a different shape to the same end. They built it on OpenCode and put several reviewers behind a deduplication coordinator, so a finding that two reviewers agree on surfaces once. There is also a check on whether the repo's AGENTS.md file is current. The coordinator is the reviewable part. Without it, the same issue appears four times and the reviewer learns to skim.
+
+## Rules are part of the workflow
+
+The rules a reviewer applies live in the same category. Stack Overflow's post on [building shared coding guidelines for AI](https://stackoverflow.blog/2026/03/26/coding-guidelines-for-ai-agents-and-people-too/) is written mostly from the generation side, how to get agents to write to your standards, and it contains the line that matters for review: code review will be most engineers' first look at the code, since they did not write it. Vish Abrams, chief architect at Heroku, makes the point that seasoned engineers assume things like DRY as common knowledge, and that assumption does not transfer to an agent.
+
+A rule that only exists in a config file the reviewer never reads is decoration. What matters is whether the reviewer ingests the files your team already keeps, AGENTS.md, CLAUDE.md, `.cursorrules`, Copilot instruction files, and scopes them so a rule for the payments service does not fire on the CLI tool. CodeRabbit reads repo config, Copilot reads instruction files, and [Kodus](https://kodus.io) ingests repo rule files as scoped rules rather than as loose context. Those are three shapes of the same idea, and the useful test is whether you can point at the file and the line that produced a comment.
+
+## A test you can run before you trust the workflow
+
+Take any agent-produced change your team merged last week and try to answer these without opening the diff.
+
+Where is the prompt or taskflow, and is it in the repository or in someone's chat history? Which model version ran, and would a rerun use the same one? Which rules were in scope for this file, and where do those rules live? What did the workflow check that a test suite would not catch? If the workflow found nothing, is that because there was nothing, or because the run was cut short?
+
+If the answers are all "somewhere in a chat window," the review process is carrying work it cannot carry at volume. If the answers are files, you have something a second engineer can review before anyone merges anything, which is the point.
+
+## What this does to review time
+
+None of this makes review faster in the sense of reading fewer lines. It moves a specific category of checking out of the reviewer's head and into an artifact that can be read once and rerun every time. That is the difference between reviewing a change and reviewing a process, and only the second one scales with the number of changes an agent can produce.
+
+There is a cost, and it is worth naming. Versioning prompts and taskflows adds config files to maintain, and they drift, which is why Cloudflare checks the AGENTS.md currency at review time instead of trusting it. A workflow nobody updates is worse than no workflow, because reviewers will assume it still reflects how the team works.
+
+The practical thing to do this week is boring. Pick the agent workflow your team uses most, find its prompt or config, and put it in the repository next to the code it governs. Then review it the way you review anything else, with the diff open beside it. Teams that already wrote a [review policy around flagging AI code](/blog/review-policy-cant-rely-on-flagging-ai-code/) have this half done, because a policy is a workflow with a name. Teams that have not should notice that their reviewer is currently doing a job the workflow file should be doing, and that the [plateau in review time on the largest pull requests](/blog/when-review-time-plateaued-reviewers-had-stopped-reading/) is what that looks like when it stops working.
