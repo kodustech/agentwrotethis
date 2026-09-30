@@ -1,0 +1,54 @@
+---
+title: "Where AI review saves time: the write-back, not the analysis"
+description: "Review-time savings come from what an AI reviewer can do to a pull request, not from how well it reads the diff. The per-provider capability gap, and how to audit it."
+pubDate: 2026-09-30
+category: "comparison"
+tags: ["aicodereview", "codereview", "azuredevops", "pullrequest"]
+---
+
+A tool that "supports Azure DevOps" may only be able to read your pull request. Review time does not fall because something read the diff. It falls because something closed a loop inside the review, and closing a loop means writing back: posting an inline comment where the problem is, replying and resolving a thread, applying a committable suggestion, submitting a review, marking the pull request ready, merging it. Those are separate capabilities from the analysis, and on some hosts they are missing entirely.
+
+That distinction matters for anyone trying to cut review time, because the analysis quality is the part every vendor page shows you and the write-back surface is the part you have to go digging for in the docs. The digging is worth it, because write-back is what the reviewer actually feels.
+
+## Reading support and writing support are different claims
+
+Take a concrete example. CodeRabbit's [Change Stack provider support page](https://docs.coderabbit.ai/change-stack/provider-support.md) documents a per-provider capability matrix, and the Azure DevOps column is almost entirely empty on the writing side. Artifacts open read-only. No inline review comments, no file-level comments, no draft reviews, no submitting a review, no replying or resolving threads, no committable suggestions, no merge, no mark-ready-for-review, and no Change Stack chat. Azure artifacts also miss the live freshness check the other providers get, so an artifact cannot tell you the head has moved past the snapshot you are reading.
+
+Read that page carefully, because it is about Change Stack specifically, which is a review workspace sitting on top of CodeRabbit's PR review feature. It is not a claim that CodeRabbit cannot comment on Azure DevOps pull requests at all. It is a claim that the workspace layer, where a reviewer would normally resolve and apply, is read-only there. That is the shape of the problem: "we support your provider" and "we can act on your pull request" are two different sentences, and only the second one moves your cycle time.
+
+PR-Agent, the open-source reviewer that [Qodo donated to the community](https://github.com/the-pr-agent/pr-agent), shows the same thing from the other direction. Its [Azure DevOps installation page](https://docs.pr-agent.ai/installation/azure/) is explicit about a host limitation that has nothing to do with AI: Azure Repos Git does not honor YAML `pr:` triggers, so you wire the pipeline up through Build Validation as a required branch policy instead. The same page says Azure Pipelines lacks support for triggering workflows from PR comments. On GitHub you type `/review` in a comment and the agent runs. On Azure Repos you cannot, because the host does not give you that hook. PR-Agent works on GitHub, GitLab, Bitbucket, Azure DevOps and Gitea, so this is not a coverage complaint. It is a different amount of interactivity on the same tool depending on where your code lives.
+
+## What the write-back surface looks like per tool
+
+The useful way to compare reviewers is to build the list of actions first, then check which ones each tool can perform on your host. This is the list I use: post an inline comment, reply and resolve a thread, apply a committable suggestion, submit a review with a verdict, mark ready for review, merge or enter the merge queue, and run locally before push.
+
+| Tool | Hosts listed | Azure Repos write-back | Self-host / local | Notable constraint on the docs |
+| - | - | - | - | - |
+| CodeRabbit | GitHub, GitLab, Bitbucket, Azure DevOps | Change Stack artifacts read-only: no comments, suggestions, review submission, or merge | Not advertised as self-hosted | Draft reviews on GitLab and Bitbucket are held by the vendor and expire after 24 hours; Bitbucket needs authentication even for public repos |
+| PR-Agent (open source) | GitHub, GitLab, Bitbucket, Azure DevOps, Gitea | Pipeline and webhook paths work; no PR-comment trigger on Azure Repos Git, Build Validation policy required | CLI, Docker, self-hosted | `/help_docs` disabled since v0.36.1 pending a credential-exposure fix |
+| GitHub Copilot code review | GitHub and GitHub Enterprise | Not applicable | Runs in GitHub's infrastructure | Hosted review feature, so it is not a candidate if your repos are not on GitHub |
+| Kodus | GitHub, GitLab, Bitbucket, Azure Repos | Works in pull requests on Azure Repos; self-hosted runners supported | Self-hosted or hosted, CLI, CI/CD | Community tier caps Kody Rules at 10; SSO, RBAC and audit logs are Enterprise only |
+
+The Kodus row comes from its [repository README](https://github.com/kodustech/kodus-ai), which lists pull request support across those four hosts and self-hosted runners, with the free Community edition limited to 10 Kody Rules and SSO plus audit logs held back for Enterprise. Qodo also publishes an [enterprise Azure DevOps page](https://www.qodo.ai/blog/transforming-enterprise-code-review-with-qodo-azure-devops/) describing review embedded in the ADO pull request workflow, and while it argues the case well, it does not itemize the write-back actions per provider, so the specifics stay unknown from that page. GitHub's own [Copilot code review documentation](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review) confirms that feature is scoped to GitHub and GitHub Enterprise.
+
+## Why this shows up as review time rather than as review quality
+
+A reviewer's minute goes into three things: reading, deciding, and doing the bookkeeping. AI review has made the first one cheaper and the second one marginally easier. The third has barely moved, and it is the one that scales with the number of pull requests rather than with their size. If a tool can apply a suggestion in place, the author never re-opens an editor, never re-pushes, never waits for the reviewer to come back. If it cannot, every finding becomes a message that a human has to transcribe into code, which is why tools with identical finding quality can produce different cycle times on different hosts.
+
+This is also where the plateau in review time comes from. Teams that measure time-in-review per pull request often find the number stops improving after the first few weeks, even as the tool keeps producing findings. The reading got faster and the bookkeeping did not, so the floor is set by the writing side.
+
+There is a cost dimension too. Self-hosting changes which write-back paths are even available to you, because a locally hosted runner can act through the provider API in ways a hosted app cannot, and the tradeoff is operational. That is a separate decision from the one this article is about, and I covered the operational side in [what self-hosting AI code review actually costs](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/).
+
+## How to audit this on your own backlog
+
+Do not start from the vendor list. Start from your last fifty merged pull requests and count, per pull request, how many review comments required a code change and how many were resolved without one. The first number is your write-back demand. If it is small, write-back gaps will not hurt you and analysis quality is the only thing worth comparing. If it is large, the capability matrix above is the more important document on any vendor page.
+
+Then run the check by hand once, on your actual host. Open a pull request, ask the tool to review it, and try to do each of these from inside the provider: apply the suggested change, resolve the resulting thread, answer the agent in the same thread, and mark the pull request ready. Whatever refuses is your real write-back surface. It takes twenty minutes and it beats reading any comparison page, including this one.
+
+Two smaller signals are worth watching as you go. One is whether the tool's reply loop survives without a comment trigger; if your host cannot start a run from a pull request comment, then every re-review is a pipeline run, and each one has a cost and a queue position. The other is whether the agent knows the difference between a fresh diff and a snapshot. CodeRabbit's docs say Azure artifacts are static and cannot compare against the head. A reviewer working from a stale artifact is not being helped, and the failure is silent.
+
+## What to ask a vendor
+
+Ask which write-back actions are supported on your provider, by name, and ask for the docs page rather than the answer. Ask whether the tool can run as you or only as itself, because on some hosts the actions run under the tool's own identity and that changes who can resolve a thread. Ask what happens to a draft review if the session drops. And if the answer is a matrix with a mostly empty column for your host, that is not a defect in the product. It is a fact about what the review will feel like, and it is better to learn it from the docs than from a sprint that did not get shorter.
+
+Claims checked as of 2026-09-29.
