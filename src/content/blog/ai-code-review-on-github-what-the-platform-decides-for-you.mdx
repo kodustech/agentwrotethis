@@ -1,0 +1,77 @@
+---
+title: "AI code review on GitHub: what the platform decides for you"
+description: "Installing an AI reviewer on GitHub is a platform decision before it is a model decision. The trigger event, the checkout, and the token permissions set what it can read and write."
+pubDate: 2026-10-06
+category: "guide"
+tags: ["aicodereview", "githubactions", "codereview", "pullrequests"]
+faq:
+  - q: "Does an AI code reviewer on GitHub need pull_request_target?"
+    a: "Only if it must read secrets. Pull requests from forks run with a read-only GITHUB_TOKEN and no secrets, so a reviewer that calls a model provider needs a trigger that has credentials. pull_request_target grants the base repository's token and secrets, which is why GitHub documents checking out the untrusted head ref into the workspace root as the specific mistake to avoid. Check out the base ref at the workspace roots and pass the head ref through a subdirectory instead."
+  - q: "Can a pull request change the rules my AI reviewer applies?"
+    a: "It can, if the reviewer reads its rule files from the pull request head. Agentic reviewers restore a fixed list of configuration paths from the base branch for exactly this reason, and everything outside that list stays at the head. If your coding standards live in AGENTS.md or .cursorrules in the repository, confirm which ref the reviewer loads them from."
+  - q: "Should an AI reviewer be allowed to block a merge?"
+    a: "That depends on whether you have defined what a block means and who can clear it. The safer default is comment-only, because a wrong finding costs a minute in a thread rather than a stuck pull request. Reviewers that do block usually document what blocks a merge and what does not, and that documentation is the thing to read before putting one in front of a merge queue."
+---
+
+Search for how to add an AI reviewer to GitHub and you land on a pile of tool READMEs, a Reddit thread asking whether any of them are worth it, and GitHub's own Copilot documentation. Each one describes the product. None of them describe the layer underneath, which is where the behavior of the reviewer actually gets decided.
+
+A reviewer installed on GitHub can read certain files, write certain things, and carries a credential while it does. Those are set by the installation and the workflow, before the model sees a single line of the diff. Get them wrong and the reviewer still posts comments and still looks healthy, which means the failure does not arrive as an error. It arrives as context that quietly was not there.
+
+## Two ways a reviewer attaches to GitHub, owned by different parties
+
+The first shape is a hosted app installed on the repository. It receives a scoped token from GitHub, runs on the vendor's infrastructure, and reads the diff through the API. You control neither the runner nor the working tree the model sees. GitHub Copilot code review, CodeRabbit, Qodo, and Greptile all work this way to varying degrees.
+
+The second shape is a workflow inside your own repository. [AI Review](https://github.com/Nikita-Filonov/ai-review) ships as a pip package and a Docker image, runs in your pipeline, and posts inline comments, summaries, and now replies on existing review threads through a token you supply. Its README states that it never proxies or inspects your requests, and that it talks to OpenAI, Claude, Gemini, Ollama, Bedrock, OpenRouter, or Azure OpenAI depending on your config. [claude-code-action](https://github.com/anthropics/claude-code-action) runs Claude Code inside a job in your repository with your permissions block. PR-Agent and Alibaba's OpenCodeReview sit in the same family. Kodus spans both shapes: a hosted app, plus a self-hosted deployment and a CLI that runs the review wherever you point it.
+
+The difference between the two shapes lands in who owns the failure. With a hosted app, the API access the vendor negotiates is the whole story, and their scoping choices become yours to accept. With a workflow, the runner, the checkout, and the token are repository configuration, and so is every way they can be configured wrong.
+
+## The trigger event sets what the job is allowed to hold
+
+GitHub's [secure use reference for Actions](https://docs.github.com/en/actions/reference/security/secure-use) is direct about the starting position: the GITHUB_TOKEN should default to read-only for repository contents, and individual jobs should raise permissions only as far as they need. A pull request from a fork already runs with a read-only token and no secrets.
+
+An AI reviewer needs a secret. Either the model provider key or an API token for the review service. That pushes teams toward `pull_request_target`, and it works, because that event runs with the base repository's GITHUB_TOKEN and access to repository and organization secrets. It also means the job holds credentials while a pull request from anyone can influence what the job does. GitHub's separate guide on [securely using pull_request_target](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target) explains the trade and names the specific way teams break it: checking out the untrusted pull request head into the workspace root before the trusted step runs.
+
+Anthropic documents the same pattern for its own action and recommends a two-checkout arrangement. The base ref goes at the workspace root, since the action expects a git repository there. The head ref goes into a subdirectory that gets passed to Claude through `--add-dir`, so the model can read the proposed changes without them occupying the paths your trusted configuration resolves against.
+
+If you want the review to post inline comments, the job needs `pull-requests: write`. If you want it to push fix commits or resolve threads, it needs more, and each additional scope is something a prompt injection in the diff can use. Writing the permissions block is writing the review policy. A reviewer that cannot push produces a bad comment when it is wrong. A reviewer that can push produces a bad commit.
+
+## Which files the reviewer reads, and where they came from
+
+This is the question I would want answered before installing anything, and it is the one most vendor pages skip: when an agentic reviewer runs against a pull request, which files in its working tree came from the base branch?
+
+Anthropic answers it for its own tool in the [claude-code-action security documentation](https://github.com/anthropics/claude-code-action/blob/main/docs/security.md). Before Claude starts, the action restores a fixed list of paths from the pull request's base branch: `.claude/`, `.mcp.json`, `.claude.json`, `.gitmodules`, `.ripgreprc`, `CLAUDE.md`, `CLAUDE.local.md`, and `.husky/`. Paths on that list that do not exist on the base branch are deleted, and the pull-request versions are kept aside under `.claude-pr/` for reference. Everything else in the working tree stays at the pull request head, including `package.json`, lockfiles, the Makefile, `node_modules/`, and formatter or linter configuration.
+
+The split is deliberate and it is also incomplete by design, which the doc says outright. If a hook in the base branch's `.claude/settings.json` runs a package manager script, a make target, or a repo-relative script, that command resolves through files the pull request supplies. The recommendation is to call the tool directly with a pinned version and pass configuration on the command line, something like `bunx prettier@3.5.3 --no-config --write .` rather than `bun run format`.
+
+A reviewer whose rules come from files in the repository has the same exposure. If your AI reviewer reads `AGENTS.md` or `.cursorrules` from the pull request head, the diff can rewrite the rules that are being applied to it. Base-branch rule loading is the property worth checking, and it is the reason I keep pointing at where rules come from rather than how many a tool claims to support. Kodus documents a [rules file detection](https://docs.kodus.io/en/how_to_use/code_review/configs/rules_file_detection.md) path that imports `.cursorrules`, `.cursor/rules/**/*.mdc`, `.github/copilot-instructions.md`, and `AGENTS.md`, together with inheritance from global to repository to directory, which is the shape that lets you decide what is centrally controlled and what a pull request can touch. If the reviewer reads sibling repositories for cross-repo context, that set of repositories is configuration too, and it is the [same context problem that shows up with monorepos](https://agentwrotethis.dev/blog/multi-repo-ai-review-a-context-problem-not-a-volume-problem/).
+
+## What to check before you install anything
+
+The criteria that separate these options are not model quality. They are where the job runs, who holds the credential, where the rules are read from, and what a wrong review is capable of doing.
+
+| | Hosted app | Action in your CI | Self-hosted platform |
+|---|---|---|---|
+| Where the review runs | Vendor infrastructure | Your runner, under the event you choose | Your infrastructure |
+| Who holds the provider credential | Vendor | Your repository secrets | Your deployment |
+| Where rules are read from | Vendor config, usually plus repo files | Files in the checkout, at whichever ref you set | Your deployment, with rule inheritance across scopes |
+| What a bad review can do | Depends on the scopes the app was granted | Bounded by the job's `permissions:` block | Bounded by the token you issue |
+| Failure mode when misconfigured | Missing context you cannot inspect | Silent gaps in the checkout | Silent gaps in the config |
+| Examples | Copilot code review, CodeRabbit, Qodo, Greptile | AI Review, claude-code-action, PR-Agent, OpenCodeReview | Kodus self-hosted, OpenCodeReview on your own runner |
+
+The table is not a ranking. It is a list of the four things to ask a vendor before you connect a repository, and the honest answer is that the hosted column is often unknown from the outside. That is not a reason to avoid hosted reviewers. It is a reason to know which column you are in before you assume the reviewer sees what you think it sees.
+
+There is also a cost side to the choice, and it mostly lands on the self-hosted and CI columns, since those are the ones where runners, setup steps, and caches become yours to pay for. I looked at [what self-hosting an AI reviewer actually costs](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/) in more detail, and the short version is that the setup cost recurs on every push rather than once per installation.
+
+## Where the gate sits, and who decides
+
+The last piece is the one that gets decided in the repository settings rather than in the tool, which is what the reviewer is allowed to do about a failing review.
+
+Most reviewers post findings and leave the merge decision to a human, and that is the safe default because it keeps a wrong finding in the comment thread where it costs a minute. The alternative is letting the reviewer block a merge, which only makes sense if you have decided what a block means and who can clear it. Kodus explains its own position in the [review policy documentation](https://docs.kodus.io/en/how_to_use/code_review/policy.md), including what blocks a pull request, what does not, and who decides. That is the level of detail to ask for from any reviewer you plan to put in front of a merge queue, because the general problem with [leaning on review policy to catch AI-authored code](https://agentwrotethis.dev/blog/review-policy-cant-rely-on-flagging-ai-code/) is that a policy built around guessing which code was machine-written tends to fail quietly when the guess is wrong.
+
+GitHub's own documentation for Copilot code review is worth reading on this point; the default review action is a comment, not an approval, so the gate stays where it was unless you move it on purpose.
+
+## A starting checklist
+
+Read the security page before the features page. If the reviewer runs as an action, find out which event triggers it and what that event grants the job, then check whether the checkout puts any untrusted ref at the workspace root. Confirm the `permissions:` block is read-only except for the one scope the reviewer needs to comment. If the reviewer reads rule files or configuration from the repository, establish whether those come from the base branch or the pull request head, and treat anything from the head as input the diff controls. Then decide, deliberately, whether the reviewer comments or blocks.
+
+Four answers, obtainable before installation, and they tell you more about how a reviewer will behave on your repository than any benchmark score does.
