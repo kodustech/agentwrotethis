@@ -1,0 +1,71 @@
+---
+title: "Which of your rule files the reviewer actually reads"
+description: "Every AI reviewer claims to read AGENTS.md and CLAUDE.md. What decides whether your standards land is which rule wins when two apply to the same file, and whether the tool can show you which one it used."
+pubDate: 2026-10-09
+category: "explainer"
+tags: ["aicodereview", "codereview", "agents", "devtools"]
+---
+
+A reviewer that follows your team's standards is making a claim about precedence and about what the tool will show you. It says very little about how well the model writes code. Almost every AI review tool now picks up AGENTS.md, CLAUDE.md, .cursorrules or a Copilot instructions file, so the yes/no version of the question resolves to yes for all of them. The version that decides whether your standards actually land has three parts: which files it reads, which rule wins when two apply to the same file, and whether you can prove for one specific pull request that the rule you care about was in scope.
+
+## Detection is the easy part
+
+CodeRabbit's [code guidelines page](https://docs.coderabbit.ai/knowledge-base/code-guidelines.md) lists the patterns it detects by default: `AGENTS.md`, `.cursorrules`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `CLAUDE.md`, `GEMINI.md`, `.cursor/rules/*`, `.windsurfrules`, `.clinerules/*`, `.rules/*`, and `AGENT.md`. Kodus's [rules file detection page](https://docs.kodus.io/en/how_to_use/code_review/configs/rules_file_detection) covers a similar set and adds `.aider.conf.yml`, `.opencode.json`, and `docs/coding-standards/**/*`. GitHub Copilot supports three kinds of custom instructions, documented on the [repository custom instructions page](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions): a repository-wide `copilot-instructions.md` in `.github`, path-specific `NAME.instructions.md` files under `.github/instructions`, and `AGENTS.md` files stored anywhere in the repository.
+
+Three vendors, three lists that overlap almost completely. If detection were the whole problem, any of them would do, and the comparison would be about model quality. It is not, because none of those lists tell you which file wins when your repo has a root `CLAUDE.md`, a `services/billing/CLAUDE.md`, and a shared standards repository that also gets imported. That is where teams lose enforcement without noticing.
+
+## Which rule wins when two apply
+
+Kodus resolves rules through an inheritance hierarchy: global, then repository, then directory. The effective set at any level is the rules defined there, plus the rules inherited from the parent level, minus anything explicitly excluded at that level. There are two ways to stop a rule flowing down. You can mark it non-inheritable when you create it, in which case it applies only where it was created. Or you can exclude a parent rule at a child level, and this is the part worth reading twice: the exclusion does not cascade. Exclude a global rule at the repository level and a configured directory inside that same repository still inherits it, unless you exclude it there too. [Global rule sources](https://docs.kodus.io/en/how_to_use/code_review/configs/global_rule_sources) let you point Kodus at a standards repository and import its rule files as global rules that apply to every connected repo, and the source repo itself is treated as configuration rather than as a codebase, so Kodus skips review on pull requests opened in it.
+
+CodeRabbit resolves configuration differently, and the default matters. [Configuration inheritance](https://docs.coderabbit.ai/configuration/configuration-inheritance.md) is disabled by default. You have to set `inheritance: true`, after which CodeRabbit merges up the chain and stops at the first level where `inheritance` is false or unset. Merge behavior depends on the data type. Objects deep merge, scalars take the child value, and arrays append unique parent items after the child's, deduplicated by `path`, `label`, `name`, `id` or `key`. The vendor's own worked example shows the consequence: a central `path_instructions` entry for `src/**` is dropped because the repository already defines an entry with the same path. No error, no warning. The central instruction is simply not in the merged config.
+
+Copilot's rule is positional. The nearest `AGENTS.md` in the directory tree takes precedence, and when a path-specific instruction file matches the file being reviewed, both it and the repository-wide file are used. The docs also note a prerequisite that is easy to miss: for Copilot code review, your personal setting for using custom instructions has to be enabled, which it is by default. Turn it off and the review silently runs without your rules.
+
+## The failures that look like success
+
+The dropped array entry above is the cleanest example of a rule that exists, is detected, and never applies. There are several more of the same shape.
+
+A path glob that does not match. Kodus's own troubleshooting line is blunt: a rule only runs on files matching its path, so a rule can show as active in the UI and never appear in the evaluation trace for the files you expected. Nothing about the UI tells you the difference.
+
+Case sensitivity. CodeRabbit's guideline patterns are case-sensitive, so a file named `claude.md` is not matched by `**/CLAUDE.md`. A team that renames a file, or that has one contributor on a case-insensitive filesystem, ends up with guidelines that quietly stop applying.
+
+Guidelines reviewed instead of used. Adding `CLAUDE.md` to `path_instructions` tells CodeRabbit to review that file as changed code, not to apply it as a guideline. The docs call this a common mistake, and the symptom is a reviewer that comments on your standards document instead of enforcing it.
+
+LLM conversion of a free-form file. Kodus imports `.kody/rules/**` and `rules/**/*.md` verbatim, preserving your wording, identifiers and Bad/Good examples. Files that do not follow that template fall back to the LLM importer, which merges several guidelines from one file into a single rule. Want two independently manageable rules? They need to be two files. There is a related trap: if you hand-edit a rule that was created from an IDE rule file, the next sync of that file overwrites your edit.
+
+Markers that are live controls. Adding `@kody-ignore` to a rule file makes Kodus skip it on the next sync and remove any rules previously created from it, and removing the marker brings them back. That is the intended behavior, and it means a comment in a markdown file is a control plane for what gets enforced.
+
+Cross-repo guidelines that are not pinned. CodeRabbit can read guideline files from another repository in the same organization, and it reads them from that repository's default branch at review time. Freshness is the benefit. The cost is reproducibility: a comment from last month may not reproduce today because the guideline text behind it has moved.
+
+Rule files that drift. Cloudflare's [CI-native reviewer](https://blog.cloudflare.com/ai-code-review/) includes a plugin that verifies the repository's `AGENTS.md` is up to date, which is a reasonable response to stale rule files. They also built the whole system themselves, because off-the-shelf tools did not offer enough flexibility for an organization their size. Stack Overflow's piece on [building shared coding guidelines for AI](https://stackoverflow.blog/2026/03/26/coding-guidelines-for-ai-agents-and-people-too/) makes the adjacent point that guidelines for agents need to be more explicit and demonstrative than guidelines for people, because an agent does not absorb the tacit conventions a new hire picks up by reading the codebase.
+
+## How to prove a rule actually fired
+
+This is the part most vendor pages do not answer, and it is the part that turns the claim into something checkable.
+
+Kodus on a self-hosted deployment writes grep-able markers into the API logs. `[kody-rules-sync]` summarizes each sync run, including which files were imported, which were skipped with a reason, and which were removed. `[kody-rules-eval]` is a per-file evaluation trace that names the rule uuid and title selected into the prompt for each reviewed file. Two `docker logs` greps give you an answer for a specific pull request rather than for the feature in general.
+
+CodeRabbit exposes the resolved configuration rather than the prompt. Running `@coderabbitai configuration` on a pull request prints the fully resolved YAML annotated with source comments, so each setting shows which level in the merge chain supplied it. That is a direct way to catch the dropped `src/**` entry.
+
+For GitHub Copilot, the documentation describes how the three kinds of instructions are assembled, and I did not find a documented way to inspect the assembled instructions for a particular review. That capability is unknown from the sources I read, which is different from saying it does not exist.
+
+The check that works on every tool is a canary rule. Write one rule scoped to a single glob that forbids one obvious thing, open a pull request that violates it inside a file matching that glob, and confirm the finding appears. Then move the violation to a file outside the glob and confirm it does not. That is ten minutes of work and it exercises detection, scoping, precedence and firing in one pass. Repeat it for the language you care most about, because rule evaluation is not uniform across file types, and repeat it after any change to the rule file layout.
+
+## The criteria that decide this
+
+| Tool | Rule files detected | How scope is decided | How precedence resolves | Can you see which rule fired |
+| - | - | - | - | - |
+| Kodus | IDE rule files plus `.kody/rules/**`, `rules/**/*.md`, `docs/coding-standards/**` | Nested files scoped to their directory; per-rule path globs; directory-level settings | Global to repository to directory inheritance; non-inheritable rules and child exclusions that do not cascade | Yes on self-hosted, via `[kody-rules-sync]` and `[kody-rules-eval]` log markers |
+| CodeRabbit | AGENTS.md, `.cursorrules`, Copilot instruction files, CLAUDE.md, GEMINI.md, `.cursor/rules/*`, `.windsurfrules`, `.clinerules/*`, `.rules/*` (case-sensitive) | Directory-scoped by default, with explicit `applyTo` mapping and cross-repo `repo:path` sources | Inheritance off by default; when on, chain stops at first false or unset level, and arrays dedupe by path so a parent entry can be dropped | Yes, `@coderabbitai configuration` prints the resolved config with source annotations |
+| GitHub Copilot | `copilot-instructions.md`, `NAME.instructions.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` | Nearest `AGENTS.md` in the directory tree wins; path-specific files apply on path match | Positional for AGENTS.md; repository-wide and path-specific both apply when the path matches | Unknown from the documentation I read |
+
+A fourth option is what Cloudflare did: build a coordinator around an open-source agent and treat your internal standards as one more plugin with its own compliance check. That gives you full control over precedence and over what the trace looks like, and it costs an internal tool to own. Their post reports running it across tens of thousands of merge requests, which is the kind of volume that justifies the build.
+
+## What to do before you trust the claim
+
+Look at how many rule files your repository actually contains, including the nested ones. Pick the rule you would most hate to see silently skipped and find its path glob, then check that glob against the files it is supposed to cover. If two files define guidance for the same path, determine which one wins on your tool and delete or scope the loser. Find the command or log marker that shows the resolved rule set, and run it on a real pull request rather than trusting the settings page. Then add the canary rule and keep it, because the thing that breaks rule enforcement later is a file layout change nobody connected to the reviewer.
+
+A rule file is an artifact, and it deserves the same treatment as the code it governs: version it, scope it, and check that it fires. Teams that get real value out of "the reviewer follows our standards" can point at the file, the glob, and the log line. Teams that cannot are running a policy that exists in a repository and not in their review. If your rules live in a central standards repo, the [multi-repo context question](/blog/multi-repo-ai-review-a-context-problem-not-a-volume-problem/) is the next one to settle, and if you are still deciding where the reviewer runs at all, the operational cost of [self-hosting it](/blog/what-self-hosting-ai-code-review-actually-costs/) changes which of these verification paths you get. A policy that leans on [flagging AI code](/blog/review-policy-cant-rely-on-flagging-ai-code/) rather than on scoped rules has the same blind spot, one layer up.
+
+Claims checked 2026-10-04.
