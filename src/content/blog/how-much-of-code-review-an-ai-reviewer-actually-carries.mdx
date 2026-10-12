@@ -1,0 +1,75 @@
+---
+title: "How much of code review an AI reviewer actually carries"
+description: "Firm-level data shows AI review tools write about a quarter of review comments. Coverage, not finding count, is the number to ask a vendor for, and here is how to read it from config."
+pubDate: 2026-10-12
+category: "explainer"
+tags: ["aicodereview", "codereview", "pullrequests", "agents"]
+faq:
+  - q: "What share of code review do AI review tools actually carry?"
+    a: "In the Harvard and Jellyfish working paper by Chen and Stratton, AI agents accounted for 23.3% of all review comments, and 10.8% of pull requests received at least one AI-generated comment, even though nearly 80% of the sampled firms had used an AI review tool by March 2026."
+  - q: "Why does review time go up after AI agents are adopted?"
+    a: "LinearB's 2026 benchmarks report that AI-generated pull requests wait 4.6 times longer before review starts but are reviewed twice as fast once picked up, so most of the elapsed time is queue wait rather than reading time."
+  - q: "How do you measure whether an AI reviewer covers enough of the review?"
+    a: "Ask the vendor for the share of pull requests the tool comments on and the share of comments it writes, then confirm it from config: which events trigger a pass, which changes it skips, the severity threshold, and whether its verdict can block a merge."
+---
+
+Teams trying to handle a rising volume of agent-written changes usually ask how many findings an AI reviewer produces. The number that decides whether the workflow holds is smaller and duller: what share of the review that reviewer actually carries. That share is measurable, and the one firm-level measurement published so far puts it in the minority.
+
+The measurement comes from a working paper by Fiona Chen and James Stratton at Harvard, [Artificial Intelligence in the Firm: Bottlenecks in Software Production](https://fion.ac/jellyfish.pdf), in its August 2026 version. It draws on anonymised engineering-event metadata from 718 firms and roughly 300 million events between January 2021 and March 2026, supplied through Jellyfish. The design compares firms that adopted agent tooling at different points in time, so the estimates are observational. It is a working paper, and it has not been peer reviewed.
+
+[Ars Technica's report on the paper](https://arstechnica.com/ai/2026/10/ai-coding-agents-generate-more-code-but-not-more-software/) carries the top-line figures. After agent adoption, lines of code per worker rose about 30%, commits 20%, and pull requests 23%. Resolved issues and epics tracked in tools like Jira did not move in a statistically detectable way, with the 95% upper bound on the issue gain around 12% of baseline. That upper bound matters. The study cannot claim output fell, and it cannot detect a firm-level improvement either.
+
+Downstream of the pull request, the elapsed time from submission to merge rose 49% on average, given in the paper as 3.45 days against a 7.03-day baseline. The share of pull requests with changes requested nearly doubled, and comments per pull request rose 35%.
+
+Then the number that should change how you read a vendor page. By March 2026, nearly 80% of the firms in the sample had used some form of AI code review. AI agents accounted for 23.3% of all review comments, and 10.8% of pull requests received at least one AI-generated comment. A [close reading of the paper](https://www.drufball.com/notes/agentic-coding/chen-stratton-review-bottleneck-firm-study-2026) flags one framing slip in the coverage: the 10.8% is the share of pull requests that received an AI comment, not the share authored by an agent.
+
+The tooling is close to universal and produces about a quarter of the review text on the changes it touches. That ratio is the coverage figure, and it is the one to ask for.
+
+## Coverage is a configuration value, not a feature list
+
+Coverage comes from four settings, and none of them appear on a pricing page.
+
+Which events start a pass. A reviewer that runs when a pull request opens behaves differently from one that also reviews every new push, and differently again from one triggered by a repository or organisation ruleset that a pull request cannot override.
+
+Which changes it skips. Skip conditions are where coverage quietly disappears. Kodus skips when there are no new commits since the last run, when a push contains only merge commits, when every changed file matches an ignore pattern, when the pull request exceeds the configured file limit, and when the user who opened it has no licence. It also pauses follow-up reviews during rapid consecutive pushes, three within fifteen minutes by default.
+
+How much it posts. A severity threshold decides which findings reach the thread. Kodus defaults to medium, with an option to apply the same filter to violations of its own rules. Deduplication decides how many near-identical comments survive.
+
+Whether the verdict has consequences. This one changes behaviour on both sides of the review. [CodeRabbit's request-changes workflow](https://docs.coderabbit.ai/pr-reviews/request-changes-workflow.md) is disabled by default, and when enabled its approval waits on the latest commit having completed a review, all its threads being resolved, and its pre-merge checks passing. Authors can clear that with `@coderabbitai resolve` or `@coderabbitai approve` unless `reviews.allow_author_approval` is set to false. GitHub Copilot code review's [configuration page](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review) puts approval in public preview, with separate toggles for whether Copilot can approve and whether those approvals count toward merge requirements, plus file globs to limit which pull requests count. Kodus keeps request-changes and auto-approve off by default and documents the cases where turning them on makes sense, such as security-sensitive paths or repositories with stable rules and reliable CI.
+
+Here is how those settings compare across the reviewers that come up in this conversation.
+
+| Reviewer | Starts a pass on | Skips when | Comment volume control | Verdict |
+| --- | --- | --- | --- | --- |
+| Kodus | pull request opened, new commit per cadence, or `@kody start-review` | no new commits, merge-only commits, ignored paths, file limit, unlicensed user | severity threshold at medium by default, per-category toggles, dedupe before posting | request changes and auto-approve are separate toggles, off by default |
+| CodeRabbit | pull request opened, new commits | path filters can exclude every changed file | inline comments plus pre-merge checks | request-changes workflow off by default, approval gated on a reviewed commit and resolved threads |
+| GitHub Copilot code review | user setting, repository ruleset, or organisation ruleset | not stated on the configuration page | review effort level, with Lite and Balanced available and Max marked coming soon | approvals in public preview, can be set to count toward merge requirements |
+| Cloudflare's internal reviewer | merge request opened | not published | a coordinator deduplicates findings from up to seven specialist reviewers into one comment | blocks merges on serious problems or security issues, per Cloudflare's own post |
+
+Two entries in that table are not products you can install. Cloudflare's system, described in their [post on orchestrating AI code review](https://blog.cloudflare.com/ai-code-review/), is built on OpenCode and runs inside their CI across tens of thousands of merge requests. The coordinator is the part worth copying, because it is what stops a seven-reviewer setup from posting the same finding seven times, and a reviewer who sees the same comment repeatedly stops reading it. The same idea applies to the rules a reviewer loads. If a rule file is read from the pull request head, the change can rewrite the standards being applied to it. [Which files a reviewer reads](https://agentwrotethis.dev/blog/which-of-your-rule-files-the-reviewer-actually-reads/) is worth answering before installation, and Kodus documents how it imports and scopes rule files found in the repository, including a `@kody-ignore` marker for files that should stay in the repo without becoming review rules.
+
+## Queue wait is where the elapsed time goes
+
+The 49% figure from the Harvard paper is calendar time between submission and merge. It is not reviewer minutes, and the paper does not report reviewer minutes at all. That gap matters, because the two clocks can move in opposite directions.
+
+LinearB's [2026 engineering benchmarks](https://linearb.io/resources/engineering-benchmarks), built from 8.1 million pull requests across 4,800 teams, reports that AI-generated pull requests wait 4.6 times longer before someone picks them up, and are then reviewed twice as fast once picked up. The same report puts acceptance for AI-generated pull requests at 32.7%, against 84.4% for manual ones.
+
+Read together, those numbers describe a queue problem. A change that sits for hours before its first reviewer touches it shows up as a long merge time even when the review itself takes minutes. If your team is measuring one number for the whole path, an improvement to review quality will be invisible, and the thing that helps, getting to the diff sooner, will not be the thing you invest in. Splitting pickup time from review time is the cheapest useful instrumentation change available.
+
+There is a second reason to watch the split. When review time on the largest changes flattens while volume climbs, the workflow is not getting faster. In Salesforce's account of its own review surge, that plateau meant [reviewers had stopped meaningfully engaging](https://agentwrotethis.dev/blog/when-review-time-plateaued-reviewers-had-stopped-reading/) with the changes in front of them.
+
+## When the queue stops working, teams close it
+
+The QGIS project merged [QEP428](https://github.com/qgis/QGIS-Enhancement-Proposals/pull/387), which changes its policy to a strict not-allowed position on AI contributions. The discussion in that pull request is unusually concrete about why. A maintainer writes that AI use from external contributors puts massive and unbearable pressure on maintainers, and that the AI stream is higher than what human review can take seriously, leading either to a longer list of unreviewed pull requests or to code that was never fully reviewed. Another contributor reports roughly 50 pull requests tagged AI Assisted, of which about 40 were closed without merging. The [mailing list thread](https://lists.osgeo.org/pipermail/qgis-developer/2026-September/068576.html) behind the proposal includes a moratorium proposal and a separate suggestion that new contributors record a screencast of their change working before it is considered.
+
+You can disagree with the policy and still use it as a measurement. QGIS ran the experiment, watched what it did to its review queue, and closed the intake. A team that would rather keep the intake open needs coverage numbers and queue numbers to know whether its version of the same trade is working, and most teams do not have them. Making the workflow itself reviewable is one way to get part of that back, since the [artifacts worth reviewing](https://agentwrotethis.dev/blog/the-artifact-worth-reviewing-when-agents-write-the-code/) when agents write the code are the prompt, the rule set, the model version, and the tool calls rather than the diff alone.
+
+## The metric that survives
+
+Chen and Stratton measure what firms produced. Another paper measures what survived the trip to users, and it points the same direction. NBER Working Paper 35275, [Writing Code vs. Shipping Code](https://www.nber.org/papers/w35275) by Mert Demirer, Leon Musolff and Liyuan Yang, follows more than 500,000 GitHub developers with their AI usage telemetry. Commits rise 30% with autocomplete, 180% with interactive coding agents, and 240% with autonomous agents. Those gains attenuate as you move down the production chain: 80% for the number of projects and 30% for actual releases. The authors estimate an elasticity of substitution of 0.23 between AI effort and human effort, which they read as strong complementarity. The human step in the chain does not get cheaper just because generation does.
+
+Neither paper measures whether the merged lines were still there a month later. That is unknown at firm scale, and it is the number I would want next. Until someone publishes it, the practical version is local. For a two-week window, log four things per change: time to first review comment, comments split by whether a human or a tool wrote them, the change-request rate, and what happened to the merged lines thirty days on, still present or already reverted. Those four columns will tell you more about your review workflow than any published benchmark, and they will tell you whether an AI reviewer is carrying enough of the load to justify its place in the path.
+
+Coverage below half the review is not a failure. It is a description of where the work still sits, and it should change how you staff the queue.
+
+Figures as of October 2026.
