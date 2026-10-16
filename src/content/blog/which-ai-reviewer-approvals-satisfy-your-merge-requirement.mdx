@@ -1,0 +1,68 @@
+---
+title: "Which AI reviewer approvals satisfy your merge requirement"
+description: "A bot review only blocks or clears a merge if the repository says so. What Copilot, CodeRabbit, Kodus and Graphite document, and the effort dial behind it."
+pubDate: 2026-10-16
+category: "comparison"
+tags: ["aicodereview", "codereview", "githubactions", "pullrequests"]
+---
+
+Whether an AI reviewer's approval clears a merge requirement is a repository setting, and on most platforms it starts off. GitHub's Copilot code review will post a review the moment it is enabled, but a separate toggle decides whether that review can submit an approving review, and a second decides whether the approval counts toward the required approvals on the branch. CodeRabbit's request-changes workflow ships disabled and only exists on paid tiers. Kodus documents auto-approve as optional and recommends leaving blocking behavior off until your thresholds and CI are settled.
+
+The consequence is that a team can run an AI reviewer for months, watch it comment on every pull request, and never notice its approval was never in the merge path. The reverse is worse. Someone enables the toggle, a bot approval clears the gate on a change nobody read, and the first time anyone notices is an incident.
+
+## What the approval toggle actually controls
+
+GitHub splits this across three settings on the repository, under Settings, then Copilot, then Code review. Allow Copilot to approve pull requests turns on approving reviews. Allow Copilot approvals to count toward merge requirements is the one that lets those approvals satisfy branch protection. The third is a file path list, one glob per line, up to 15 entries, which narrows where an approval counts: it counts only on pull requests where every changed file matches one of the globs.
+
+That glob list is the most useful of the three and the one most teams leave blank. If the bot is allowed to approve and its approvals count, an empty list means a bot approval carries the same weight on a payment handler as it does on a changelog. Filling it in keeps the approval in the merge path for the changes where it is worth something and out of it everywhere else. GitHub labels the whole arrangement as public preview, which is worth knowing if your merge gate is load-bearing.
+
+Kodus takes the opposite default and says so in its [review policy documentation](https://docs.kodus.io/en/how_to_use/code_review/policy.md): suggestions are non-blocking by default, request-changes and auto-approve are optional behaviors you turn on, and the page recommends enabling blocking only where the team has agreed thresholds and strong CI in place. That is a defensible starting position because it keeps the failure mode to a noisy thread rather than a stuck pull request.
+
+## The effort dial is a separate control from the approval
+
+Copilot code review has a review effort level with three values. Lite is described as a standard review, Balanced goes deeper on complex logic, security-sensitive code, and cross-service changes, and Max is listed as coming soon. The built-in default is Balanced.
+
+Effort changes what the reviewer examines and what it costs. GitHub's own estimate is $0.05 to $1 of AI credits for a Lite review and $0.25 to $5 for a Balanced one, excluding Actions minutes, with consumption rising alongside pull request size and repository custom instructions. Those are estimates from the vendor, not measurements, so treat the ranges as an order of magnitude.
+
+Effort and approval are independent. Raising the effort level changes what the reviewer finds. It does not change whether the reviewer's approval can clear the gate, and it does not change which paths that approval counts on. A team that wants a stronger review and a narrower gate sets two different controls, and teams regularly conflate them.
+
+There is a second layer here that shows up on a bad CI day. Copilot's agentic capabilities, meaning full project context gathering and passing suggestions to the cloud agent, run on GitHub Actions. If Actions is unavailable or the workflow fails, reviews still post, just without the agentic extras. The same repository can produce a shallower review because a runner was unavailable, and nothing in the comment tells you which mode you got. That is the coverage question, and it is why [coverage per change is the number to ask a vendor for](https://agentwrotethis.dev/blog/how-much-of-code-review-an-ai-reviewer-actually-carries/) rather than a comment count.
+
+## When an approval stays pending
+
+CodeRabbit's [request changes workflow](https://docs.coderabbit.ai/pr-reviews/request-changes-workflow.md) is the most explicit of the tools about this. When enabled, CodeRabbit requests changes if a review posts actionable inline comments, and approves once the approval requirements are met. Approval stays pending when the latest review is missing, in progress, failed, or rate-limited; when the current pull request HEAD is not among the commits it reviewed; when a required review thread is unresolved; when a pre-merge check is failing; or when HEAD changes while CodeRabbit is verifying the requirements.
+
+Two of those are worth reading twice. A rate-limited run can still resolve threads it considers addressed, but the approval stays pending because the latest commit did not complete a review. And if every changed file is excluded by path filters, CodeRabbit skips the review content but still evaluates the remaining approval requirements and can approve. An empty review is not the same as a blocked one. Path filters can produce an approval on a change the reviewer never read.
+
+CodeRabbit also ships two override commands, `@coderabbitai resolve` and `@coderabbitai approve`, which can submit approval without requiring the latest commit to have completed a review and without pre-merge checks passing. By default the pull request author can run them on their own pull request, and `reviews.allow_author_approval: false` turns that off. So with the workflow on, an author-facing command can approve around the checks the workflow exists to enforce. Whether that is acceptable is a policy decision, but it should be a made one, in the same spirit as [a review policy that cannot lean on detecting AI code](https://agentwrotethis.dev/blog/review-policy-cant-rely-on-flagging-ai-code/).
+
+## Who the review is billed to
+
+Copilot attributes an automatic review's AI credits to the pull request author by default, and a manually requested review to whoever requested it. For pull requests authored by the Copilot cloud agent, usage is attributed first to the human co-author, and if that person cannot be billed, to the organization. For pull requests authored by other bots, or when a bot requests the review, it is billed directly to the organization.
+
+The attribution is about cost, and it still shapes who enables what. An organization that pays for every bot-authored review has a reason to keep automatic review off on agent-heavy repositories, and that choice removes the reviewer from those pull requests entirely. The trigger event and the token scopes sit in the same layer, which is the part [the platform decides for you](https://agentwrotethis.dev/blog/ai-code-review-on-github-what-the-platform-decides-for-you/) before a model sees the diff.
+
+## The tools side by side
+
+| Tool | Approval default | What can block or clear a merge | Limits worth knowing |
+| --- | --- | --- | --- |
+| GitHub Copilot code review | Approval off by default, counting toward merge requirements off by default | Approving reviews, then a separate toggle to count them as required approvals | File path globs, up to 15, gate which pull requests count; public preview |
+| CodeRabbit | Request-changes workflow disabled by default, Essentials tier and above | Requests changes on actionable inline comments, approves when requirements are met | Approval stays pending on a rate limit or a stale HEAD; author-facing resolve and approve commands |
+| Kodus | Non-blocking suggestions by default | Request-changes and auto-approve are optional, enabled per repository | Docs recommend blocking only with agreed thresholds and strong CI in place |
+| Graphite AI reviews | Reviews run without manual configuration | Not documented on the pages I read | unknown |
+
+Graphite's AI reviews page describes automatic review of every pull request and points at acceptance rates and rule effectiveness in a dashboard, but the pages I read do not document approval or merge-gate behavior. That is an unknown, not an absence.
+
+## Questions to settle before a bot approval counts
+
+Four questions cover most of the risk.
+
+Does the approval count as a required approval, and on which paths? If the answer is all paths, the glob list is your first piece of work.
+
+Can the approval survive a stale HEAD or a rate limit? If not, the bot will be the reason a pull request sits, and you should know that before reviewers start blaming each other.
+
+Who can override it, and can the author of the pull request override their own? An override command is a feature. An override command that the author runs on their own change is a policy decision.
+
+What does the reviewer do when it reviewed nothing? Path filters and failed agentic runs both produce a posted review with less behind it than the comment suggests.
+
+None of these are reasons to keep a bot out of the merge gate. They are the settings that decide whether the gate means what the team thinks it means. The reviewer's opinion and its authority are separate things, and only one of them is set on the branch.
