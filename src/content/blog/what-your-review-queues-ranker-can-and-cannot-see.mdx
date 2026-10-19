@@ -1,0 +1,81 @@
+---
+title: "What your review queue's ranker can and cannot see"
+description: "Once pull requests outnumber review hours, a ranking layer decides what gets read. CodeRabbit Triage, Kodus Cockpit and GitHub's own metrics each document what their numbers leave out."
+pubDate: 2026-10-19
+category: "comparison"
+tags: ["aicodereview", "codereview", "pullrequests", "reviewmetrics"]
+---
+
+A team with more open pull requests than review hours does not need another reviewer first. It needs something that decides which pull request to look at, and on at least one platform that decision is now a documented product feature with stated limits. CodeRabbit's Triage builds a ranked queue across repositories, and its documentation spends nearly as much space on what the ranking cannot see as on what it can. That part is worth reading before you put a ranker in front of a backlog that agents keep filling.
+
+This matters because the volume problem agents create shows up as a ranking problem before it shows up as a review-time problem. When volume rises and review time plateaus, the plateau is a disengagement signal rather than a throughput win, which is what [the Salesforce review data showed](https://agentwrotethis.dev/blog/when-review-time-plateaued-reviewers-had-stopped-reading/). A ranker is the tool teams reach for at that point, so it is worth knowing exactly what evidence it ranks on.
+
+## Where the mechanical state stops being the signal
+
+Triage separates two questions per pull request. Priority is how much acting on it is worth compared to everything else in the queue. Next action is what specifically has to happen for it to move. Its [prioritization documentation](https://docs.coderabbit.ai/triage/prioritization.md) keeps those apart on purpose, and the examples make the split concrete: failing checks, merge conflicts, draft status, a branch behind its base, unresolved review threads, and a stale approval all shape the next action and can make a pull request un-mergeable, while none of them make it urgent.
+
+A trivial dependency bump with red checks should not outrank a customer-facing fix that is simply waiting on a reviewer. The state of a pull request tells you what to do about it. It does not tell you what the change is worth.
+
+That is the whole argument for a queue over a repository list once volume climbs. Sorting by last-updated or by author puts a decision in front of you that has nothing to do with consequence, and reviewers respond by reading the top of the list.
+
+## The ranker publishes what it cannot match
+
+Administrators describe how their organization wants pull requests ranked, in plain language, and CodeRabbit turns that into an ordered list of rules assigning P0 through P3. The matchable facts are broad: the repository, its owner, the target branch, draft state, change type, issue severity, risk, security risk, blast radius, review effort, check status, merge conflict status, workflow state, next action, involved people with their roles, words in the title, and how many other pull requests are blocked behind this one.
+
+Then the exclusions. Rules cannot match labels, file paths, CODEOWNERS, team membership, assignees, or the code itself. When part of a description asks for something rules cannot express, CodeRabbit reports that part as unsupported and does not apply it, rather than approximating it.
+
+The CODEOWNERS exclusion is the one to underline. CODEOWNERS is GitHub's own answer to who owns which path, and the queue's ranking layer cannot read it. The two systems answer different questions. The ownership file decides who gets asked to review, and the ranker decides what is worth reviewing now, and nothing forces them to agree. If your mental model of priority is whatever touches the paths your senior people own, that is not expressible as a ranking rule, and the tool says so instead of guessing.
+
+The file itself is also less solid than people assume. GitHub's [CODEOWNERS reference](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) documents that a line with invalid syntax is skipped, that a file over 3 MB is not loaded at all, that `docs/*` does not match nested paths like `docs/build-app/troubleshooting.md`, and that gitignore-style `!` negation and `[ ]` character ranges do not work. If your priority model depends on an ownership map, check the map first.
+
+## What it takes for the ranker to call something urgent
+
+Automatic P0 requires external evidence. A pull request reaches P0 on its own only when it carries a validated linked issue at High or Urgent priority in Jira or Linear. Without that, the base score is capped at P1 no matter how severe the internal signals look. An administrator rule can assign P0 without a linked issue, and a person can set P0 by hand.
+
+The base score comes from three signals: the validated severity of issues the reviewer found, the priority of a linked external issue, and how many other open pull requests are blocked behind this one. That third signal is the interesting one. Downstream dependency is something a ranker can compute and a human rarely does, and it is exactly the quantity that grows when agents open changes faster than anyone merges them.
+
+Triage does not show a numeric score. Levels are the interface, and the number behind them is deliberately undocumented because it changes as the ranking model improves. Two pull requests in the same provider state routinely land on different levels, which is the intent. The trade is that you cannot audit a rank the way you can audit a rule.
+
+## Where the queue stops and the merge starts
+
+The ranker also carries actions, and the merge action has a documented limit. Triage merges only the commit you were shown, and if someone pushed since, the merge is refused. On GitHub there is no merge method to choose, because Triage uses the first method the repository allows in the order merge commit, squash, rebase. When the branch requires a merge queue, the control becomes Add to merge queue and GitHub controls the ordering, checks, and method, and a queued pull request is not yet merged.
+
+Manual actions run as you, using your own Git provider authorization, so an action you could not perform in the provider is refused in the queue too. Automated actions use the organization's integration and need administrator authorization. Opening the queue at all requires an active Review seat, and the feature is Team plan and above, generally available on GitHub Cloud with GitLab in beta and Bitbucket unsupported, and not available on self-hosted CodeRabbit deployments.
+
+If what you actually care about is whether a bot approval clears branch protection, that is set in the repository, and [the approval toggles and path globs](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) are a separate decision from anything the queue does.
+
+## The other layer: what happened to the suggestions
+
+Ranking decides what to read. It says nothing about whether anyone acted on it. Kodus measures that separately in its Cockpit, on a tab called [Kodus Review](https://docs.kodus.io/en/how_to_use/cockpit/kodus_review.md), which asks whether the team is acting on what the reviewer said. The headline metric is implementation rate, implemented suggestions divided by sent suggestions, and only delivered suggestions count, meaning drafts the tool filtered out before commenting are never in the denominator. Suggestions are attributed to the week the pull request closed, because implementation status is only final once it merges.
+
+Two details there are easy to reuse in any review measurement. Negative vote rate shows raw counts instead of a percentage below ten reactions, and charts built on very few suggestions are faded and marked, because a 0% or 100% from a handful of suggestions is not a signal. The severity chart also carries an All / Kodus only toggle, because a custom rule carries the severity you set on the rule rather than a risk assessment by the tool, and mixing the two distorts the read.
+
+The metric I have not seen elsewhere is critical suggestions left unimplemented on pull requests that already merged. That is a risk list rather than a quality score, and it is the closest thing to a measure of what the review process let through. It also pairs with the coverage question, since [how much of a change a reviewer actually reads](https://agentwrotethis.dev/blog/how-much-of-code-review-an-ai-reviewer-actually-carries/) determines what a suggestion count can mean in the first place.
+
+## Reading the numbers the platform hands you
+
+If you pull review and adoption numbers from GitHub's own [Copilot usage metrics](https://docs.github.com/en/copilot/concepts/billing-and-usage/copilot-usage-metrics/copilot-metrics), the caveats are documented and specific. Most metrics come from client-side IDE telemetry, and end users need telemetry enabled in their IDE for the richest data. Server-side telemetry catches active users that client telemetry misses, and those users count toward active totals, but their per-feature and lines-of-code breakdowns stay empty. The data excludes Copilot Chat on GitHub.com and GitHub Mobile, and license and seat information lives in a separate API.
+
+Attribution follows organization membership rather than where the action happened, so one person's usage can appear in several organization dashboards while counting once at the enterprise level. GitHub states that organization-level analytics are not designed to be compared directly with enterprise totals. The Copilot impact dashboard groups users into adoption cohorts and connects adoption to pull request output, which is the nearest the platform gets to tying a review tool to delivery.
+
+None of that makes the numbers wrong. It makes them numbers with a stated scope, and a review metric quoted without its scope is how a planning meeting turns into an argument.
+
+## Three measurement layers, side by side
+
+Each of these answers a different question, and none of them substitutes for the others.
+
+| Layer | Question it answers | What it can read | What it declares out of scope |
+| --- | --- | --- | --- |
+| CodeRabbit Triage | Which pull request is worth acting on now | Repository, branch, draft state, change type, severity, risk, blast radius, review effort, checks, conflicts, workflow state, involved people, title words, downstream dependents | Labels, file paths, CODEOWNERS, team membership, assignees, the code itself; the numeric score is undocumented |
+| Kodus Cockpit (Kodus Review tab) | Whether the team acts on what the reviewer said | Delivered suggestions, their implementation status at PR close, reactions, per-rule trigger counts, review-run outcomes | Filtered-out drafts never count; rates are suppressed below ten reactions and thin samples are marked |
+| GitHub Copilot usage metrics | How Copilot is adopted and how that tracks pull request output | IDE, CLI and agent app telemetry, server-side active-user signals, repository-level PR activity, adoption cohorts | Copilot Chat on GitHub.com and GitHub Mobile, license and seat data, org-level figures compared to enterprise totals |
+
+The scoping differences are the point of the table. A Triage rule can see blast radius but not a file path. A Kodus implementation rate sees what happened to a suggestion but not which path it touched. GitHub's metrics see adoption and pull request activity but not the reviews themselves. If you want one number that covers all three, you are going to build it from two exports and a join, and you will spend the first week reconciling definitions.
+
+## What to check before you trust a queue
+
+The cheapest test I know takes an afternoon and no integration work. Take the ten pull requests your team would rank as most important today, in order, by hand. Then write the rule you would need to reproduce that ranking, in whatever language the tool accepts. If the rule reaches for file paths, labels, CODEOWNERS, or team membership, the ranker cannot express it, and the queue you get will be ordered by something else.
+
+Do the same for the number you plan to report upward. Ask what the denominator is, which population it counts, and which cases the documentation says are excluded. A ranker that tells you what it cannot see is easier to trust than one that does not mention the question, and the ones that document their blind spots have just handed you the audit you were going to need anyway.
+
+The context question sits underneath all of this. A queue that ranks across repositories still hands the reader one change at a time, which is why [cross-repository context](https://agentwrotethis.dev/blog/multi-repo-ai-review-a-context-problem-not-a-volume-problem/) is a separate problem from ranking order. Ranking decides when you look. It does not decide whether what you are looking at makes sense on its own.
