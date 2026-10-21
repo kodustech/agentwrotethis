@@ -1,0 +1,84 @@
+---
+title: "Free AI code review: what the free tier actually covers"
+description: "Free means four different arrangements in AI code review. What CodeRabbit, Greptile, Qodo, Copilot and Kodus include on a free tier, and the metering unit that decides whether you get a review or a demo."
+pubDate: 2026-10-21
+category: "comparison"
+tags: ["aicodereview", "codereview", "pullrequests", "pricing"]
+faq:
+  - q: "Is there a genuinely free AI code review tool?"
+    a: "Yes, with a meter attached. CodeRabbit's Free plan summarizes pull requests and reserves actual reviews for the VS Code extension and CLI, at one PR review per developer per hour. Greptile's Starter plan is free for one active developer with 50 credits per month. Kodus Community is free with unlimited PRs on your own API key. All three keep commenting, and the limits show up in how much they read per change or how often they run."
+  - q: "Does GitHub Copilot code review have a free tier?"
+    a: "Copilot Free does not include automatic code review configuration, which GitHub's configuration page limits to Copilot Pro, Pro+, Max, Business and Enterprise. Copilot code review can run for organization members without a Copilot license, but only on Copilot Business or Copilot Enterprise, only when an administrator enables two policies, and the AI credits are billed to the organization."
+  - q: "What should I check before calling a review tier free?"
+    a: "Four things: whether the tier reviews the pull request or only summarizes it, what the metering unit is and whether it resets hourly or monthly, whether the reviewer's approval can clear your merge requirement or whether the platform gates that to a paid tier, and what happens to the tier when the trial ends."
+---
+
+Free AI code review is four different arrangements sharing one word, and only one of them puts a reviewer on your pull requests without a clock on it. The others are a metered tier, an open-source grant, or a trial that ends. Which one you have decides whether you are evaluating a reviewer or running one, and the difference usually shows up in the metering unit rather than on the feature list.
+
+That matters more than it used to. When generation was slow, a free tier was a reasonable way to run review on a small team. Now that agents open pull requests faster than people can read them, the free tier is where teams first find out whether an AI reviewer's findings are worth reading at all, and a tier capped at one review per developer per hour answers that question differently than a tier capped at fifty files per change.
+
+## What each vendor calls free
+
+CodeRabbit's [plans page](https://docs.coderabbit.ai/management/plans.md) lists a Free plan with unlimited public and private repositories and no credit card required, then states the limit plainly: PR summarization only, with code reviews available through the VS Code extension and CLI. The free tier does produce something on every pull request, and that something is a summary. The review runs in the editor or the terminal, not on the pull request. New organizations start on a 14-day Advanced trial, and an organization that does not subscribe reverts to Free.
+
+GitHub's arrangement is harder to read because the free part is the license, not the plan. [Copilot code review](https://docs.github.com/en/copilot/concepts/agent-capabilities/agent-powered-workflows-and-operations/code-review) can run for organization members who do not hold a Copilot license, which sounds like free review. Two conditions sit under that sentence. The organization must be on Copilot Business or Copilot Enterprise, and an enterprise administrator or organization owner has to enable two policies, the first of which lets the organization incur charges for the review's AI credits. The reviewer is free to the member and billed to the organization. On that path it is also unavailable in IDEs.
+
+Greptile's Starter plan is free for one active developer, with unlimited repositories and 50 credits per month. Qodo does not offer a permanent free tier at all. Its [pricing page](https://www.qodo.ai/pricing/) says reviews pause when the 14-day trial ends and points to a paid plan, with a separate application-based program for open-source projects.
+
+Kodus splits the difference. Its [Community plan](https://kodus.io/pricing) is free, self-hosted or hosted by Kodus, with unlimited PRs and unlimited users, capped at 10 Kody Rules and 3 active plugins. The metering moves to your provider, because Kodus is BYOK: you bring an OpenAI, Anthropic or Gemini key, pay that provider directly, and Kodus charges no markup on tokens.
+
+Then the open-source grants, which are the tiers most often quoted as the free option. CodeRabbit's OSS plan gives unlimited public repositories and Team features at no cost, on a rate-limit tier that varies with the project's community and popularity. Public repositories under 10 stars must have reviews triggered manually. Greptile's OSS program covers qualified non-commercial projects with an OSI-approved license. Qodo's open-source access is an application, not a self-serve toggle.
+
+## The metering unit decides whether free is a review or a demo
+
+The rate table is where a free tier stops looking like a review and starts looking like a sample. CodeRabbit's Free plan allows one PR review per developer per hour, three IDE and three CLI reviews per hour, and 150 files per review, with chat unavailable. Essentials is five per hour at the same 150-file ceiling. Team is eight per hour at 300 files, and chat goes from unavailable to 50 messages.
+
+The files-per-review cap matters more than it sounds once you remember what agents submit. A pull request that crosses 20 files and 1,000 lines is routine when generation is fast, and a reviewer capped at 150 files leaves part of that change unexamined. The cap is applied after path filter exclusions, so it limits what the reviewer reads, not what the author pushed.
+
+Greptile meters in credits rather than time. Starter includes 50 credits per month, a base review costs 1 credit, a Plus review costs 3, and an Apex review costs 10. Fifty credits is fifty base reviews or five Apex reviews in the same month, which is a wide range for one plan. If the value you want comes from the deeper pass, the free tier is five reviews, not fifty.
+
+The two meters fail differently, and that is the part worth carrying into a decision. A per-developer-per-hour limit throttles bursts, so a team that reviews in batches hits it and a team that spreads review across the day may never notice. A monthly credit pool runs out and stops, usually late in the month when the backlog is largest. Neither number tells you how much review you get until you read the unit it is measured in.
+
+## The merge path is the part free usually excludes
+
+Commenting on a pull request is the cheap half of review, and every free tier does it. Approving or blocking a merge is the half that costs, and the exclusion happens at two levels.
+
+At the platform level, GitLab gates required merge request approvals to Premium and Ultimate, which is the split I went through in [what the GitLab tier decides for an AI reviewer](https://agentwrotethis.dev/blog/ai-code-review-on-gitlab-what-the-tier-decides/). On Free, any user with the Developer role can approve, those approvals are optional, and merging does not depend on them. A reviewer that cannot block a merge is advisory no matter what its configuration screen offers.
+
+At the tool level, GitHub's approval toggles are off by default, and the ability to configure automatic review is not available on the Copilot Free plan. The [configuration page](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review) lists the plans that can turn on automatic review, and Copilot Free is not among them. An individual on the free plan can still request a review by hand on a pull request, and cannot put a reviewer in the merge path automatically. If your merge requirement is the thing you are trying to satisfy, the [approval toggles and the file globs that narrow them](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) are the settings that matter, and none of them are on the free plan.
+
+Kodus takes the other default and documents it. Auto-approve and request-changes are optional behaviors, and the [review policy page](https://docs.kodus.io/en/how_to_use/code_review/policy.md) recommends enabling blocking only where a team has agreed thresholds and strong CI in place. The write-back exists on the free Community plan. What the paid tier adds is the ceiling on Kody Rules, which goes from 10 to unlimited, and the plugin limit, which goes from 3 to unlimited.
+
+## Where the cost lands on a free tier
+
+A free tier with BYOK is not free, it is unbilled by the vendor. Kodus Community runs unlimited PRs on your own API key, so the monthly cost is your token spend, and that scales with PR count, diff size, and model choice. The vendor's own calculator puts a 30-developer team on the Teams plan at $345 to $570 per month depending on model, with the $300 license as the fixed part and the model choice moving the rest by roughly a factor of six across the options shown.
+
+Greptile's overage is explicit at $1 per extra credit on Pro. CodeRabbit routes over-limit reviews through a usage-based add-on on Essentials and above. Qodo meters credits and lets overage accrue against a spending cap you set, with credits expiring at the end of each monthly cycle.
+
+The shape is consistent: free tiers meter tightly, paid tiers meter loosely, and BYOK moves the meter off the vendor's books and onto yours. That is worth knowing before a team treats a free tier as the cheap path and finds the token bill is the real line item, the same way [self-hosting turns out to be a residency decision rather than a cost decision](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/).
+
+## The tools side by side
+
+| Tool | What the free tier includes | Metering unit | Write-back on free | Paid entry point |
+| --- | --- | --- | --- | --- |
+| CodeRabbit | Free: unlimited repos, PR summarization only, reviews in VS Code and CLI. OSS: Team features, public repos | Free: 1 PR review per dev per hour, 150 files/review, no chat. OSS: 1 to 10 per hour, varies by project popularity | Available on the pull request, subject to the hourly limit | Essentials $24 per developer per month billed annually, $30 month-to-month |
+| GitHub Copilot code review | No free plan for automatic review. Review for unlicensed org members requires Copilot Business or Enterprise plus two admin policies | AI credits, estimated $0.05 to $1 per Lite review and $0.25 to $5 per Balanced review, plus Actions minutes | Approvals off by default, and automatic review configuration is not available on Copilot Free | Copilot Pro $10 per month, or Copilot Business at $19 per granted seat |
+| Greptile | Starter: free, 1 active developer, unlimited repositories. OSS free for OSI-licensed non-commercial projects | 50 credits per month. Base review 1 credit, Plus 3, Apex 10 | Not documented on the pricing page | Pro $30 per seat per month, 50 credits per seat, extra credits $1 each |
+| Qodo | No permanent free tier. 14-day trial with unlimited reviews, no credit card. OSS by application | Credits, pooled across the team, no rate limits on the paid plan | Not documented for the trial | Paid plan after trial, with overage against a spending cap you set |
+| Kodus | Community: free, self-hosted or hosted, unlimited PRs and users, 10 Kody Rules, 3 plugins | Your own provider tokens, no vendor markup | Auto-approve and request-changes available and off by default | Teams $10 per developer per month monthly, $8 billed annually, plus tokens |
+
+Prices are the vendors' own published figures as of October 2026, and this is the category where they move most.
+
+## What to check before calling a tier free
+
+Four checks settle it, and all four come from the vendor's own documentation rather than a comparison page.
+
+Does the tier review the pull request, or only summarize it? CodeRabbit's free plan is explicit about the difference, and it is the fastest way to find out whether you are testing a reviewer.
+
+What is the metering unit, and does it reset hourly or monthly? A per-hour limit and a monthly pool produce different failure modes, and a credit pool with tiered review costs is not the number of reviews the headline implies.
+
+Can the reviewer's approval clear your merge requirement on this tier? Check the tool's toggles and the platform's own gating separately, because GitLab charges for required approvals and GitHub's automatic review configuration skips the free plan.
+
+What happens when the trial ends? Reverting to a limited free tier and stopping entirely are different outcomes for a team that has already wired the reviewer into its workflow.
+
+Answer those from the vendor's docs before you compare feature lists. The listicle that ranks free AI review tools rarely says which tier it is pricing, and the tier is usually the whole answer.
