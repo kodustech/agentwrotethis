@@ -2,22 +2,37 @@
 title: "What self-hosting AI code review actually costs"
 description: "Augment Code's 450K-file monorepo test puts a number on self-hosting review tools: $4,100 to $9,100 a month once infrastructure and maintenance enter. Method and sources."
 pubDate: 2026-09-17
+updatedDate: 2026-10-22
 category: "explainer"
 tags: []
 ---
 
 The "best self-hosted AI code review tool" question gets searched constantly, and almost everything that ranks is a vendor listicle with no method. One source actually ran a test and published costs. Augment Code put ten open-source review tools against a 450K-file Python, TypeScript, Java and Go monorepo and documented what happened, published 2026-01-16 and updated 2026-08-17.
 
+## The number worth stealing
+
 The number worth stealing from it is the cost of self-hosting. The license is free. Everything around it is not. Augment's estimate puts a self-hosted stack at $4,100 to $9,100 a month at any team size, from published GPU rates combined with 0.25 to 0.5 FTE of maintenance at the US Bureau of Labor Statistics mean developer wage. Compare that to $24 to $30 per developer per month for a commercial per-seat reviewer.
+
+## Why that range reframes the decision
 
 That range matters because it reframes the decision. Self-hosting stops being the cheap option. It is the privacy and residency option. You pay more per month, in a different shape: a capital and staffing cost instead of a subscription line item. A team that self-hosts for cost reasons is making the choice on the wrong number.
 
+The $24 to $30 floor still holds for a base paid tier (CodeRabbit's Essentials plan is $24/dev/mo billed annually, $30 month-to-month), but it is no longer the ceiling across vendors. CodeRabbit's higher Pro Plus tier and Qodo Merge's Teams plan now list closer to $38 to $60 per developer per month, so treat $24-30 as a starting price to check against, not a cap.
+
+## What the test rules out
+
 The rest of the test is worth a read for what it rules out. None of the ten tools detected cross-service breaking changes across the four languages. Every one of them operates at file level. SonarQube Community Build was the strongest, with near-zero false positives over 21 languages, and Semgrep came second on custom rules. But neither is an architecture reviewer. That ceiling is where commercial platforms claim to pick up.
 
-Two concrete findings on the enterprise controls buyers care about. Augment reports that most free build gating the controls that matter behind a commercial key: audit logging on SonarQube Community is gated at Enterprise Edition, and a commercial license is required for single sign-on, RBAC and audit logs in the tools tested, Kodus included. And there is a sharp detail on local inference: PR-Agent's configuration issue #2098 caused silent fallback to hosted models during testing, which defeats the point of a local stack if you do not notice. Tabby self-hosted as documented.
+## The enterprise controls gated behind a commercial license
+
+Two concrete findings on the enterprise controls buyers care about. Augment reports that most free builds gate the controls that matter behind a commercial key: audit logging on SonarQube Community is gated at Enterprise Edition, and a commercial license is required for single sign-on, RBAC and audit logs in the tools tested, Kodus included — re-checked against Kodus's own current pricing page, where Community and Teams still omit SSO, RBAC and audit logs, and only the custom Enterprise tier lists them. And there is a correction worth making on local inference: Augment's article describes PR-Agent's configuration issue [#2098](https://github.com/qodo-ai/pr-agent/issues/2098) as a silent fallback to hosted models, but the thread itself shows an explicit `Failed to generate prediction with any model` error, not a silent one, triggered by an incomplete local-model config, and it was closed as resolved on 2026-08-06, before Augment's own 2026-08-17 update went out describing it as still open. Tabby self-hosted as documented.
+
+## The caveat, and what to do with it
 
 One caution on the numbers. The $4,100 bottom of Augment's range assumes modest GPU use. A team running large models on every PR, or needing high throughput on many repos, should expect the high end. The method behind the range is published, and the hourly components are itemized, but the assembly is an estimate, not a bill from a real deployment.
 
 The decision to self-host is a model-placement decision first, and a price check second. Anyone comparing self-hosted and hosted review tools should run their own numbers with their own GPU sizing and their own maintenance time, because the published per-seat figures for hosted tools are stable and the monthly cost of self-hosting is the one teams most often forget to include.
 
 Source: Augment Code, 10 Open Source AI Code Review Tools Tested on a 450K-File Monorepo, https://www.augmentcode.com/tools/open-source-ai-code-review-tools-worth-trying
+
+Claims re-checked 2026-10-22.

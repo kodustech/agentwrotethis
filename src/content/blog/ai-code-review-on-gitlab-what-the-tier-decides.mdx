@@ -2,6 +2,7 @@
 title: "AI code review on GitLab: what the tier decides"
 description: "Required approvals are a paid GitLab feature. What CodeRabbit, Qodo, GitLab Duo, Copilot and Kodus each document for GitLab, tier by tier."
 pubDate: 2026-10-14
+updatedDate: 2026-10-22
 category: "comparison"
 tags: ["aicodereview", "gitlab", "codereview", "pullrequests"]
 faq:
@@ -25,7 +26,7 @@ CodeRabbit's [request changes workflow](https://docs.coderabbit.ai/pr-reviews/re
 
 Kodus documents the same class of write-back with a caveat in the other direction. Its [general review configuration](https://docs.kodus.io/en/how_to_use/code_review/configs/general) lists auto-approve on GitHub, GitLab, Bitbucket, Azure Repos and Forgejo, while the Request Changes toggle is hidden when GitLab is the only connected platform. On a GitLab-only setup, Kody approves and comments without the ability to request changes.
 
-GitLab's own reviewer sits in a different position because it is part of the platform. [GitLab Duo Code Review](https://docs.gitlab.com/user/gitlab_duo/merge_requests/) is available on Premium and Ultimate with the GitLab Duo Enterprise add-on, and you trigger it with `/assign_reviewer @GitLabDuo` or by assigning Duo as a reviewer. Because it is first-party, its limits are the platform's limits, and the tool-selection question mostly disappears.
+GitLab's own reviewer sits in a different position because it is part of the platform. [GitLab Duo Code Review](https://docs.gitlab.com/user/gitlab_duo/code_review/) is available on Premium and Ultimate with the GitLab Duo Enterprise add-on, and you trigger it with `/assign_reviewer @GitLabDuo` or by assigning Duo as a reviewer. Because it is first-party, its limits are the platform's limits, and the tool-selection question mostly disappears.
 
 ## The service account is the identity your reviews carry
 
@@ -35,7 +36,7 @@ CodeRabbit's [GitLab.com integration page](https://docs.coderabbit.ai/platforms/
 
 That token has an operational life. A personal access token with no expiry date defaults to 365 days from creation, and replacing it is a manual step in the CodeRabbit UI. The failure mode when nobody owns that calendar item is a reviewer that quietly stops posting.
 
-Kodus takes both routes on GitLab, documented in its [quickstart](https://docs.kodus.io/en/how_to_use/quickstart): an app install, where Kody appears as a dedicated bot in merge requests, or a token, where reviews appear under your username. The docs frame the app path as the one with the clearer audit trail, since a distinct bot account separates AI review from human review in the history.
+Kodus takes both routes on GitLab, documented in its [quickstart](https://docs.kodus.io/en/how_to_use/quickstart): an app install, where Kody appears as a dedicated bot in merge requests, or a token, where reviews appear under your username. The docs frame the app path as the one with the clearer audit trail in general, since a distinct bot account separates AI review from human review in the history — that framing is written in the quickstart's GitHub section, and the same reasoning carries over to GitLab's app-vs-token choice.
 
 ## Self-managed GitLab is a different purchase
 
@@ -43,7 +44,7 @@ This is where GitLab diverges most from [GitHub, where the platform decides thro
 
 CodeRabbit supports it with a version floor: its [self-managed GitLab page](https://docs.coderabbit.ai/platforms/self-hosted-gitlab) states GitLab 16.x and above, with 15.x possibly experiencing issues such as review comments not being posted or the sign-up process failing. Setup needs an OAuth2 application with the `api`, `read_user`, `email` and `openid` scopes, a callback to `app.coderabbit.ai`, webhooks for merge request events, comments and issues, and an IP allowlist if your instance filters inbound traffic. CodeRabbit's [platform overview](https://docs.coderabbit.ai/platforms/overview) also states that its self-hosted deployment is an Enterprise option for customers with 500 or more user seats, which puts full data residency out of reach for smaller teams.
 
-Qodo publishes a [deployment matrix per Git provider](https://docs.qodo.ai/install-qodo/deployment-model-support). GitLab Cloud supports multi-tenant, single-tenant and on-premises, with air-gapped marked not applicable. GitLab Self-Managed supports all four, air-gapped included. In the same table, Bitbucket Data Center has no multi-tenant option and Azure DevOps Cloud has no on-premises option, so the GitLab Self-Managed row is one of the more flexible in the matrix.
+Qodo publishes a [deployment matrix per Git provider](https://docs.qodo.ai/install-qodo/deployment-model-support). GitLab Cloud supports multi-tenant, single-tenant and on-premises, with air-gapped marked not applicable. GitLab Self-Managed supports all four, air-gapped included — a row that used to be more distinctive than it is now. Bitbucket Data Center has since picked up multi-tenant support too, so the current gap in the table is narrower: Azure DevOps Cloud is the one still marked with no on-premises option.
 
 Kodus ships a self-hosted deployment alongside its cloud offering, and the quickstart documents the connection path for a self-hosted GitLab instance: allowlist Kodus's IP in your firewall, then connect by app or token. The same pattern is documented for GitHub Enterprise, Bitbucket Data Center and Azure DevOps Server.
 
@@ -55,13 +56,13 @@ GitLab documents a fallback worth reading before you trust a clean review on a l
 
 GitLab's recommended mitigations are to split large merge requests, exclude context for files that are not relevant, or have an administrator select a different model. Two other documented behaviors matter for how much to read into a clean result: automatic reviews skip draft merge requests and merge requests with no changes, and exclusion rules in `.gitlab/duo/mr-review-automated-rules.yaml` are read from the default branch only, so a rule on a feature branch does not apply.
 
-There is a second GitLab review feature. The same page states that depending on your add-on and group settings, GitLab runs either Code Review Flow, the agentic version in the GitLab Duo Agent Platform, or the non-agentic Duo Code Review. The flow's own documentation page returned a bot-verification interstitial when I tried to read it, so I am leaving its configuration unverified rather than describing behavior I could not confirm.
+There is a second GitLab review feature, and its tier gating cuts the other way from the rest of this post. [Code Review Flow](https://docs.gitlab.com/user/duo_agent_platform/flows/foundational_flows/code_review/), the agentic version in the GitLab Duo Agent Platform, is now documented as available on Free, Premium and Ultimate, on GitLab.com, Self-Managed and Dedicated — it went GA in GitLab 18.8, and Free-tier access arrived in 18.10 through GitLab Credits rather than a Duo add-on. It runs as a CI/CD job, needing either a `gitlab--duo`-tagged runner or GitLab-hosted runners, takes custom instructions through `mr-review-instructions.yaml`, re-reviews on every push, and has a beta capability to approve or request changes. That beta approve/request-changes capability is the piece worth re-checking before relying on it: it is the part of this feature that would actually let a Free-tier team get a blocking AI review, something nothing else on this page offers below Premium.
 
 ## What each tool documents for GitLab
 
 | Tool | GitLab support as documented | Enforcement write-back | Self-managed / air-gapped | Notes |
 | --- | --- | --- | --- | --- |
-| GitLab Duo Code Review | Premium, Ultimate with the Duo Enterprise add-on | First-party review; blocking still governed by your approval rules | GitLab.com, Self-Managed, Dedicated | Non-agentic version; agentic Code Review Flow documented separately |
+| GitLab Duo Code Review | Premium, Ultimate with the Duo Enterprise add-on | First-party review; blocking still governed by your approval rules | GitLab.com, Self-Managed, Dedicated | Non-agentic version. Code Review Flow, the agentic version, is now GA on Free, Premium and Ultimate and has a beta approve/request-changes capability |
 | CodeRabbit | GitLab.com and self-managed GitLab (16.x and above) | Request-changes workflow with GitLab-specific discussion handling | Self-hosted deployment documented for Enterprise, 500+ seats | Dedicated service account plus token expiry management |
 | Qodo | GitLab Cloud and GitLab Self-Managed | Findings and comments; governance documented in a separate section | All four deployment models on GitLab Self-Managed, air-gapped included | Deployment matrix published per Git provider |
 | Kodus | GitLab via app or token | Auto-approve on GitLab; request-changes toggle hidden on GitLab-only setups | Self-hosted deployment; firewall allowlist for self-managed GitLab | Also documents Bitbucket, Azure Repos and Forgejo |
@@ -82,3 +83,5 @@ Work through these in order, because later answers depend on earlier ones.
 6. Which files can a merge request change about the review itself? The rule-loading question matters more than the rule count. I looked at [which of your rule files the reviewer actually reads](https://agentwrotethis.dev/blog/which-of-your-rule-files-the-reviewer-actually-reads), and on GitLab the exclusion rules file is read from the default branch only.
 
 If a vendor page does not answer one of these, the honest answer is unknown, and the way to settle it is a test merge request on your own instance rather than a sales call. That is also the only method that tells you whether the reviewer's approval would have satisfied the approval rule you actually configured, which is the thing you were buying.
+
+Claims re-checked 2026-10-22.
