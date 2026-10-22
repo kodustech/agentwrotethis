@@ -10,15 +10,23 @@ Field note. Claims checked as of 2026-09-12. Primary source: Michels et al., "Vi
 
 The question I keep getting is how a team can review the growing volume of AI-generated code. Most answers start with throughput: faster review tools, more automated checking, larger batches. That assumes the problem is volume. The review I read last week suggests the harder problem is placement, not volume.
 
+## The conjecture: gains shrink on mature code
+
 The paper's closing conjecture is that the gains from AI are real on new code and shrink or reverse on mature codebases. That claim is falsifiable, the authors say it would account for most of the disagreement in the record. It matters for review because of what it implies about where the risk sits.
+
+## Why greenfield and mature code carry different review costs
 
 Think about what a team reviews. Greenfield work is mostly additive. New code goes in, the contract it has with the rest of the system is small. An agent that reasons locally around a new function often does fine there, and review effort per line is low because the blast radius is low.
 
 Mature codebases are the opposite. A change to a long-lived module touches callers, invariants, ordering, behavior that other code depends on. The part an agent cannot see from the diff is the thing that breaks: the stateful coupling, the edge case a long-gone author worked around. On that code, generation is fast and confident, and the reviewer has to carry the full mental model the generator did not build. Most fixes to mature code are exactly where validation is slowest.
 
+## What this means for how you spend review effort
+
 The practical reading is not that teams should review less. It is that review effort should be priced by code age and coupling, not by diff size. A small diff into a core module deserves a fuller reviewer than a large greenfield merge. If your review queue is flat, the AI redistribution is pushing more weight toward the expensive end and you are spending it on the new, cheap end.
 
 This is a single preprint's conjecture, not an established result. It is named falsifiable for a reason, and no shipped benchmark answers it yet. But it lines up with the telemetry in the same review: code-review time up 441% under vibe coding while output grows faster than the understanding needed to accept it.
+
+## What to test in your own repo, and the caveat on this source
 
 For a team running an actual pilot, the concrete next step is to separate review metrics by code age. Time in review per line on new files versus on files touched in the last release cycle. If the mature-code side is where the reviewer minutes concentrate, the conjecture is holding in your repo, and the plan should follow it: aim the human oversight at the coupled core, and let the cheaper review paths carry the additive work.
 
