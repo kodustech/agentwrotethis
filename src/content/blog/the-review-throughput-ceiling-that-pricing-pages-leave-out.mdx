@@ -1,0 +1,75 @@
+---
+title: "The review throughput ceiling that pricing pages leave out"
+description: "Per-review file caps and per-developer refill rates decide whether an AI reviewer keeps up with agent output. What CodeRabbit, Copilot and Kodus document, and which limit binds first."
+pubDate: 2026-10-23
+category: "comparison"
+tags: ["aicodereview", "codereview", "pullrequests", "reviewmetrics"]
+faq:
+  - q: "Does an AI code reviewer have a limit on how many reviews it can run?"
+    a: "It depends on the tool. CodeRabbit enforces a per-developer hourly allowance that refills on a rolling window: 1 review per hour on Free, 5 on Essentials, 8 on Team, 10 on Advanced and 12 on Enterprise. Sustained activity lowers the refill rate under its Fair Usage Limits Policy, down to 1 review per hour at a time for a developer who has run 60 or more reviews in the last 7 days on Essentials. Kodus documents unlimited reviews on every plan, with the only hard limit being pull requests over 2,000 changed files."
+  - q: "What happens when a pull request exceeds a reviewer's file limit?"
+    a: "CodeRabbit skips the automatic review and, on GitHub, can offer a usage-priced review for pull requests up to 300 files. Pull requests above 300 files are not supported through that path. Other Git providers show the file-limit message without the usage-priced action. Kodus skips the review when a pull request exceeds the configured file limit. Copilot's documentation does not state a per-review file cap, so the answer there is unknown from the pages it publishes."
+  - q: "Why does the reviewer slow down after a team adopts agents?"
+    a: "Because the allowance is per developer and refills on a rolling window, and agent workflows produce more review events. An incremental review on every push means three commits pushed one at a time spend three reviews while three commits pushed together spend one. Editing a file in the GitHub web UI, clicking Update branch, and resolving conflicts each write a commit and each cost a review. The slowdown arrives as a rate-limit notice on a pull request rather than as a warning you can plan around."
+---
+
+Two limits decide whether an AI reviewer keeps pace with agent output, and neither of them is on the pricing page in a form you can plan with. One is how many files a reviewer will read in a single pass. The other is how many reviews a developer seat is allowed per hour. The file cap is easy to hit deliberately and easy to avoid. The hourly allowance erodes under ordinary use, which is why most teams meet it as an error message on a pull request rather than as a decision they made.
+
+Both numbers are published. CodeRabbit documents them in the [rate limits section of its plans page](https://docs.coderabbit.ai/management/plans), GitHub states what it does and does not cap on its [code review configuration page](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review), and Kodus publishes its [plan limits](https://docs.kodus.io/en/how_to_use/pricing) separately from its feature table. Read together, they describe a ceiling that a team adopting agents will reach sooner than it expects.
+
+## What counts as a review event
+
+The allowance question only becomes concrete once you know which actions draw it down. CodeRabbit counts one review event every time it evaluates a pull request, and its [rate limit documentation](https://docs.coderabbit.ai/management/rate-limits) lists the actions that produce one. Pull request opened is one. A push is one. `@coderabbitai review` is one. Force-push, rebase, reopen, and draft marked ready for review are one each.
+
+The pattern underneath the list matters more than the list. CodeRabbit reviews pushes, not commits. Three commits pushed together spend one review event. The same three commits pushed one at a time spend three. Editing a file in the GitHub web UI is a commit and a push in a single click, so fixing three typos in three files through the web editor spends three reviews. The Update branch button and the Resolve conflicts button each write a commit, so each one spends a review as well.
+
+None of that is unusual behavior. It is what a reviewer does when a change is actively worked on. The point is that the consumption comes from the shape of the workflow rather than from anyone choosing to run more reviews, and the defaults are what produce it: automatic reviews on, an incremental review on every push, and a pause after five reviewed commits.
+
+Kodus approaches the same problem from the other side. Its [code review flow](https://docs.kodus.io/en/how_to_use/code_review/flow) skips when there are no new commits since the last run, when a push contains only merge commits with no effective change, when every changed file matches an ignore pattern, or when the pull request exceeds the configured file limit. Its [general settings](https://docs.kodus.io/en/how_to_use/code_review/configs/general) default the cadence to pausing after three pushes inside a fifteen-minute window, which keeps an active branch from generating a review per keystroke.
+
+## Where the refill rate puts the ceiling
+
+The per-hour numbers are not quotas that reset at the top of the hour. CodeRabbit describes them as rolling allowances: additional reviews become available as earlier ones age out of the window. On Essentials that is five reviews per hour, on Team eight, on Advanced ten, on Enterprise twelve, and on Free one.
+
+Then the part that changes the arithmetic for agent-heavy repositories. CodeRabbit's Fair Usage Limits Policy lowers the refill rate based on recent activity. On Essentials, a developer with 0 to 29 reviews in the last 7 days refills at 5 per hour; at 60 or more, the refill rate is 1 review per hour, one at a time. Team drops from 8 to 1 at 70 or more. Advanced drops from 10 to 1 at 80 or more.
+
+Read those bands next to what agent adoption does to pull request volume. LinearB's [2026 software engineering benchmarks](https://linearb.io/library/ai-in-software-development), built from more than 8.1 million pull requests, reports agentic pull requests at a median of 89 lines and 293 lines at the 75th percentile, against 157 lines at the same percentile for unassisted work. Agent changes are not individually enormous. They are numerous, and they wait: agentic pull requests take 17.6 hours at the 75th percentile before review starts, against 3.4 hours for unassisted work.
+
+So the binding constraint on agent volume is count, not size. A developer seat reviewing a stream of small agent changes can reach the band where the refill rate collapses, and the symptom is a reviewer that has started spacing out its own reviews. The same dynamic is what a queue ranker exists to handle once volume outruns review hours, and [what a ranker can and cannot see](https://agentwrotethis.dev/blog/what-your-review-queues-ranker-can-and-cannot-see/) is a separate question from whether the reviewer is allowed to run.
+
+## The file cap, and why it rarely binds on agent work
+
+Every reviewer that caps files per pass publishes a different number. CodeRabbit's files-per-review column is the maximum number of files it reads in a single review, counted after path filter exclusions, and it runs 3 on Free, 1 on the OSS tier, 150 on Essentials, and 300 on Team, Advanced and Enterprise. When an eligible GitHub pull request exceeds its included file limit but stays at or under 300 files, CodeRabbit skips the automatic review and can offer a usage-priced review instead. Pull requests above 300 files are not supported through that action, and other Git providers show the file-limit message without the interactive option.
+
+The usage path has its own published rate. CodeRabbit's [usage-based reviews documentation](https://docs.coderabbit.ai/management/usage-based-addon) prices a credit at $1.00 and covers 4 files per credit, which works out to $0.25 per reviewed file. A 300-file pull request on that path is roughly $75, before anyone has read the result. Usage-based reviews are available to Essentials, Team, Advanced and Enterprise organizations, and the continuation mode has three settings: Automatic continues and bills, On demand pauses and asks a seated developer to authorize each review, and Off stops reviews until the allowance refills.
+
+Kodus takes a different position on the count. Its plans page states that reviews are unlimited on every plan, with the only hard limit being that it does not review pull requests with more than 2,000 changed files, and a configurable file limit that causes a skip below that. So the cap exists in both products, but in one it is a billing boundary and in the other it is a single documented ceiling.
+
+GitHub Copilot code review does not publish a files-per-review cap on the pages I read, so the number is unknown from its documentation. What it publishes instead is a review effort level with Lite, Balanced and Max values, where Max is listed as coming soon and the built-in default is Balanced, and an estimated consumption of $0.05 to $1 of AI credits for a Lite review and $0.25 to $5 for a Balanced one, excluding Actions minutes. Those are vendor estimates, not measurements.
+
+One more property worth knowing, because it affects what a review is worth rather than whether it runs. Copilot's agentic capabilities, which include full project context gathering and passing suggestions to the cloud agent, execute on GitHub Actions runners. GitHub's overview states that if Actions is unavailable or the workflow fails, reviews are still generated but without those capabilities. A repository can produce a shallower review because a runner was unavailable, and nothing in the comment says which mode you got.
+
+The file cap sounds like the constraint to design around. On a normal day it is not. With agent pull requests sitting at 293 lines at the 75th percentile, the cap only binds on the regenerated file, the lockfile churn that path filters did not exclude, and the monorepo-wide refactor. The count-based limit is the one a team will meet in week one.
+
+## The tools side by side
+
+| Reviewer | Reviews per developer | Files per review | What happens at the limit |
+| --- | --- | --- | --- |
+| CodeRabbit Free | 1 per hour, rolling | 3 | Review skipped; PR summarization remains |
+| CodeRabbit Essentials | 5 per hour, falling to 1 at 60+ reviews in 7 days | 150 | Skipped, with a usage-priced review offered up to 300 files |
+| CodeRabbit Team | 8 per hour, falling to 1 at 70+ reviews in 7 days | 300 | Skipped, with a usage-priced review offered up to 300 files |
+| CodeRabbit Advanced and Enterprise | 10 and 12 per hour, falling to 1 at 80+ reviews in 7 days | 300 | Skipped, with a usage-priced review offered up to 300 files; above 300 files unsupported |
+| GitHub Copilot code review | Not stated per hour on the pages reviewed | Not stated; effort level instead | Effort level changes depth and estimated credit cost, not admission |
+| Kodus | Unlimited on every plan | Configurable file limit; hard ceiling of 2,000 changed files | Review skipped when the pull request exceeds the configured file limit |
+
+Two rows in that table are numbers I could not verify and have marked as such rather than filled in. A vendor's silence on a limit is not evidence that the limit does not exist, and it is worth asking about directly before a rollout depends on it.
+
+## What to check before you install
+
+The two numbers to pull from a vendor's own documentation are the refill rate for a developer seat and the files-per-review cap, and the refill rate is the one that will shape your rollout. Three settings move it without changing the product.
+
+Set the review cadence to pushes with a pause rather than every commit, and confirm what the pause threshold is. CodeRabbit's `auto_incremental_review` and `auto_pause_after_reviewed_commits` are the controls, and Kodus defaults to three pushes in fifteen minutes. Then keep lockfiles, generated code and vendored directories out of the review scope through path filters, because a cap counted after exclusions is a cap that a well-built filter never reaches. Finally, watch for the rate-limit notice as a configuration signal rather than a capacity problem. It means the workflow is producing more review events than the allowance covers, and the cheapest fix is usually fewer events per change rather than a higher plan.
+
+Where the verdict of the review has to clear a merge gate, that is a separate decision from the throughput ceiling, and [the approval toggles and path globs](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) are set in the repository. Where the number of open pull requests has already outrun review hours, the ceiling is not the first thing to fix, and [the plateau in review time on the largest changes](https://agentwrotethis.dev/blog/when-review-time-plateaued-reviewers-had-stopped-reading/) is a better signal to start from. Coverage per change, which is a config question rather than a capacity one, is the number that decides [how much of the review an AI reviewer carries](https://agentwrotethis.dev/blog/how-much-of-code-review-an-ai-reviewer-actually-carries/) once it is running at all.
+
+Vendor limits move, and these are the kind of numbers that change between quarters. Read them from the plans page rather than from a screenshot of it.
