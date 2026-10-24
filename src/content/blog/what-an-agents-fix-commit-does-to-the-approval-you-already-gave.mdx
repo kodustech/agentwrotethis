@@ -1,0 +1,76 @@
+---
+title: "What an agent's fix commit does to the approval you already gave"
+description: "Approval invalidation is a repository setting, and an agent's fix loop hits it on every push. What GitHub, GitLab, CodeRabbit and Kodus document about re-review rounds."
+pubDate: 2026-10-24
+category: "comparison"
+tags: ["aicodereview", "codereview", "pullrequests", "githubactions"]
+faq:
+  - q: "Does an agent pushing a fix commit invalidate a human approval?"
+    a: "On GitHub, yes, if Dismiss stale pull request approvals when new commits are pushed is enabled. GitHub records the state of the diff at the moment of approval, and any change to that state, including a new commit, an Update branch click, or a related pull request merging into the target, dismisses the approving review as stale. GitLab removes approvals on new commits by default, using git patch-id to decide whether the diff actually changed."
+  - q: "Can an approval survive a rebase or an update from the target branch?"
+    a: "Yes, when the resulting patch is unchanged. GitHub's stacked pull request documentation states that rebasing a stack does not count as a new reviewable commit if the diff does not change, and approvals are retained even with dismiss-stale enabled. GitLab's use of git patch-id is what lets it keep approvals across a rebase or a merge of the target branch."
+  - q: "What is the middle setting between dismissing and keeping stale approvals?"
+    a: "On GitHub it is Require approval of the most recent reviewable push. Stale reviews are not dismissed, and the pull request stays approved as long as someone other than the person who made the most recent push approves it. GitLab offers a narrower option: Remove approvals by Code Owners if their files changed, which removes approval only from owners whose files a later commit touched."
+---
+
+An approval is bound to a specific diff, and the platform records which one. Push a commit that changes that diff and the approval stops counting toward the merge requirement, whether a person or an agent wrote the commit. That rule lives in branch protection or project settings, it is on by default in some places and off in others, and it decides how many times a human has to read the same change before it lands.
+
+The reason it matters more now is the shape of the fix loop. When an agent is asked to address review comments, it pushes. When it pushes and the diff changes, the review it was responding to is no longer valid as an approval. On a repository where most changes come from agents, that loop can send the same pull request past a human several times, and the second and third reads are what show up in review time while looking like the same change.
+
+## The approval is bound to a diff
+
+GitHub states the mechanism in the [protected branch documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches). GitHub records the state of the diff at the point a pull request is approved, and that state is the set of changes the reviewer approved. If the diff changes from that state, the approving review is dismissed as stale and the pull request cannot merge until someone approves again. The documented triggers include a contributor pushing new changes, clicking Update branch, and a related pull request merging into the target branch.
+
+GitLab starts from the same position with a different default. An approval is removed when more changes are added after the approval, and GitLab uses [git patch-id to compare the new diff against the approved one](https://docs.gitlab.com/user/project/merge_requests/approvals/settings/). That comparison is what lets GitLab keep approvals across a rebase or a merge of the target branch when the resulting patch is unchanged.
+
+Both platforms let you turn the behavior off, and the reason the default is what it is appears in GitHub's own guidance: if you are worried about approved pull requests being hijacked, dismissing stale approvals is the safer setting. An approval that survives an arbitrary push is an approval on content nobody read.
+
+## What the agent fix loop changes
+
+A human author usually pushes a fix once, maybe twice, and the round ends. An agent responding to review comments will push as many times as it takes, and each push that changes the diff restarts the approval. GitHub's [Copilot code review documentation](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-code-review) covers the bot's own case directly: if new commits are pushed after Copilot approves, the approval is dismissed and you can request another review.
+
+CodeRabbit documents the same binding from the other side. Its [request-changes workflow](https://docs.coderabbit.ai/pr-reviews/request-changes-workflow.md) approves a specific commit, verifies immediately before approving that the pull request HEAD has not changed, and leaves approval pending when the current HEAD is not among the commits it reviewed. A new push is a new approval decision.
+
+The consequence is a number most review dashboards do not show. If review time is measured per pull request, an agent-heavy change that needed three rounds of fixes reads as one slow review. What happened is that one approval was invalidated twice, and two of those reads covered diffs the reviewer had already formed an opinion about. That is rework on the same person who is already carrying the queue, which is the shape of the [441 percent review time increase under vibe coding](https://agentwrotethis.dev/blog/review-time-is-up-441-under-vibe-coding-that-is-the-real-problem/) rather than a throughput problem in the reviewer.
+
+## The settings that decide how many re-reads a change costs
+
+There are three positions on the dial, and the middle one is underused.
+
+Dismiss stale approvals on. Every diff-changing push costs a fresh human approval. On a repository where agents push fixes frequently, this is the setting that turns a fast generator into a slow review queue.
+
+Dismiss stale approvals off. Approvals persist across pushes, and an agent can add unreviewed content under an approval a human gave to different content. That is the hijack case GitHub's docs point at.
+
+Require approval of the most recent reviewable push. GitHub documents this as a middle path, and it is worth reading closely. Stale reviews are not dismissed, and the pull request stays approved as long as someone other than the person who made the most recent push approves it. The stated purpose is to let a reviewer confirm that the latest changes incorporate earlier feedback without re-reading everything.
+
+GitLab offers a finer version of the same idea. Remove approvals by Code Owners if their files changed takes the approval away only from code owners whose files a later commit touched, so a fix that stays inside one service does not invalidate an approval from an owner in another.
+
+For a repository where agents open most of the pull requests, the most-recent-push rule is usually the better default, because it keeps a human in the loop on the latest content without charging a full re-read for every iteration. It depends on someone being available who is not the last pusher, so it fits a team of three or more reviewers around a service less well than it fits a single maintainer with a rotating backup.
+
+## Where the approval survives without weakening the rule
+
+Patch equivalence is the escape hatch, and it is documented on both platforms. GitHub's [stacked pull request reference](https://docs.github.com/en/pull-requests/reference/stacked-pull-requests) states that rebasing a stack does not count as a new reviewable commit when the diff does not change, and approvals are retained in that situation even with the dismiss-stale rule enabled. GitLab's use of git patch-id is what makes the same call, and its settings page names rebase and merge of the target branch as the operations it handles better as a result.
+
+This gives you a concrete criterion for what your agent is allowed to do when it fixes a review finding. A fix that changes the diff costs a re-approval. A rebase or an update from the target branch that leaves the patch identical does not. An agent that reformats, regenerates a lockfile, or touches an unrelated file while addressing a comment turns a free operation into a paid one. Constraining the fix commit to the finding is worth more under this setting than it is on most others.
+
+There is a related trap on the automation side. GitLab's [merge request approvals API](https://gitlab.com/api/v4/projects/278964/repository/files/doc%2Fapi%2Fmerge_request_approvals.md/raw?ref=master) notes that automation which creates and approves a merge request can approve before the commit is fully processed, producing an approval that the platform then resets. Its documented workaround is to wait until detailed_merge_status is not in checking or approvals_syncing and the merge request diff contains a non-null patch_id_sha, or to pass the sha attribute when approving. The activity log ends up reading approved, added one commit, reset approvals by pushing to the branch, which is the same sequence an agent fix loop produces for a different reason.
+
+## The reviewers, and what they do on a new commit
+
+Copilot code review, CodeRabbit and Kodus all sit on top of those platform rules, and each documents its own behavior around a new commit.
+
+| Reviewer | Approval in the merge path | Documented behavior on a new commit |
+| --- | --- | --- |
+| GitHub Copilot code review | Approvals off by default, with a separate toggle for counting toward merge requirements | A push after an approval dismisses it, and you can re-request a review |
+| CodeRabbit | Request-changes workflow disabled by default, Essentials and above | Approves a specific commit and checks HEAD has not changed; approval stays pending when HEAD is not among the commits it reviewed |
+| Kodus | Non-blocking by default; request-changes and auto-approve are optional behaviors | An approval only participates in the gate if you enable those optional behaviors |
+
+The platform layer those reviewers depend on is worth reading on its own, because [the trigger and the token scopes decide what a reviewer can do](https://agentwrotethis.dev/blog/ai-code-review-on-github-what-the-platform-decides-for-you/) long before invalidation comes up.
+
+Kodus takes the non-blocking default and says so in its [review policy documentation](https://docs.kodus.io/en/how_to_use/code_review/policy.md): suggestions post as comments, request-changes and auto-approve are optional, and the page recommends enabling blocking behaviors only where the team agrees on thresholds and has strong CI in place. That keeps a Kodus review out of the merge path by default, so the invalidation rule never fires on its approval unless you opted in. The trade between those two positions is the subject of [which reviewer approvals satisfy a merge requirement](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/), and this is the other half of it: what happens to that approval on the next push.
+
+## What to measure, and the question to settle first
+
+Per-pull-request review time will not show any of this. Two metrics will: approvals per merged change, and the count of review rounds per change. Both are visible in the activity log, both are cheap to pull from the API, and both move when an agent fix loop starts invalidating approvals the team assumed were still valid.
+
+The question to settle before enabling anything is who re-approves after the agent's next push. If the answer is the same person who approved the last diff, the setting is charging a full re-read on every iteration, and a narrower fix commit or the most-recent-push rule will do more for review time than a stronger model will. If the answer is nobody, the approval is not protecting the merge, and the gate is decoration. Either way the answer is a repository setting, not a property of the reviewer, and it belongs next to [the question of who the change is even routed to](https://agentwrotethis.dev/blog/what-your-review-queues-ranker-can-and-cannot-see/) in the same review of how the queue works.
