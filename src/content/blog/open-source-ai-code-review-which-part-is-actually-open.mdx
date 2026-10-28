@@ -1,0 +1,86 @@
+---
+title: "Open source AI code review: which part is actually open"
+description: "Five arrangements all get called open source AI code review. The license badge does not tell you which one you have. What to check in the repo, the license file, and the vendor's own README."
+pubDate: 2026-10-28
+category: "comparison"
+tags: ["aicodereview", "codereview", "opensource", "pullrequests"]
+faq:
+  - q: "Is Kodus open source?"
+    a: "Yes, with a dual license. Source outside the Enterprise Code is AGPL-3.0, while files with .ee. in the name or inside an ee/ directory fall under the Kodus Enterprise Code License, which permits a self-hosted Community user to run the unmodified Enterprise Code needed for Community features such as code review and BYOK, but not to modify it. GitHub's license field reports NOASSERTION for the repository because a single identifier cannot express that split."
+  - q: "Does an MIT license mean the code review itself is open source?"
+    a: "Not necessarily. Sourcery's repository is MIT and contains the editor client, a pre-commit hook definition, and packaging metadata, while pull request reviews run through the hosted service and the README says reviews use OpenAI and Anthropic models. The repository being open and the review path being runnable by you are two separate facts."
+  - q: "Is a free plan for public repositories the same as open source?"
+    a: "No. CodeRabbit's OSS plan gives public repositories Team features with no paid subscription and review limits that vary by star count, but the company's code is not published and reviews run on its infrastructure. Free usage of a hosted service is a pricing arrangement, not a license."
+---
+
+Open source AI code review describes at least five different arrangements, and the license badge on the repository tells you almost none of them. What actually decides how a review behaves is where the diff goes and which process holds it. Those two answers can be unrelated to the license file sitting at the root of the repo.
+
+This matters more now than it did a year ago, because most of the code arriving in review was written by an agent. If the reviewer runs inside your infrastructure with your model key, the agent's diff never leaves. If the reviewer is hosted, every agent pull request ships that diff to somebody else's service, and the pace agents set means that happens far more often than it used to.
+
+## The license field on the repository is the weakest signal available
+
+GitHub's API reports a license for a repository by reading the license file it can recognize. For [`kodustech/kodus-ai`](https://github.com/kodustech/kodus-ai), that field comes back as `NOASSERTION`, even though the README carries an AGPLv3 badge. The reason is visible in the repo's own [license file](https://github.com/kodustech/kodus-ai/blob/main/license.md): it is a dual-license arrangement. Source outside the Enterprise Code is AGPL-3.0, while any file with `.ee.` in its name or inside an `ee/` directory falls under a separate Kodus Enterprise Code License. That second license permits a self-hosted Community user to run the unmodified Enterprise Code needed for Community features, including code review and bring-your-own-key, in production. It does not permit modifying that code, and it does not permit using Enterprise-only features.
+
+A single SPDX identifier cannot express that. The license field on a repo page is a convenience for scanning dependencies, and it has no way to say which directories the permissive half covers.
+
+Two more examples from the same category. [`the-pr-agent/pr-agent`](https://github.com/the-pr-agent/pr-agent) reports MIT, and the [`LICENSE`](https://raw.githubusercontent.com/the-pr-agent/pr-agent/main/LICENSE) file confirms plain MIT. [`alibaba/open-code-review`](https://github.com/alibaba/open-code-review) reports Apache-2.0 and the README states it plainly, Copyright 2026 Alibaba. Those two are the easy cases, and they are easy precisely because the whole project is under one license.
+
+## Five things teams mean when they say a reviewer is open source
+
+### The repository is the client, and the reviewer is hosted
+
+[`sourcery-ai/sourcery`](https://github.com/sourcery-ai/sourcery) is MIT, and the repository is genuinely open. Read the top-level contents and you find a license, a `pre-commit-hooks.yaml`, a write-up about building an LSP client, packaging metadata, and a demo GIF. The README's installation path for pull request reviews is adding the GitHub App, and it says the reviews use OpenAI and Anthropic models, which means the diff of the PR is sent to those providers. For private repositories the README points to a Team or Pro plan.
+
+The code being open and the review being open are two separate facts here. If your question is whether the thing commenting on your PRs can be audited and run by you, the MIT license does not answer it. Sourcery's README is unusually direct about where the product stands: it says the goal is the kind of review you would expect from a colleague, and that they are not there yet.
+
+### Self-hostable, with a carve-out that the badge hides
+
+Kodus is the shape most teams picture when they hear the phrase, and it still has an edge worth reading before you commit. The [repository](https://github.com/kodustech/kodus-ai) describes itself as open source, self-hosted AI code review with bring-your-own-LLM, and the docs state that all source is available to inspect, use, and improve. The self-host path is documented rather than implied: Docker on a VM you control, at least 2 CPU cores, 8 GB of RAM, and 60 GB of free disk. The CLI talks to your instance over HTTPS through `KODUS_API_URL` and a team key, and the documented CI shape is a JSON review with `--fail-on error` so the pipeline fails on findings above a threshold.
+
+The carve-out is the `.ee.` split described above, and there is one operational detail that belongs in the same paragraph. A self-hosted instance sends one anonymous heartbeat per day, carrying aggregated counters and no code, names, or identifiers, and it can be turned off with `KODUS_TELEMETRY_DISABLED=true`. A self-hosted review tool that phones home once a day is a different posture from one that never does, and the honest version of the claim includes the phone call.
+
+### A community-maintained legacy project sitting next to the vendor's product
+
+PR-Agent is the case that breaks the usual assumption that an open-source reviewer is the company's product. The README says outright that the repository is not the Qodo offering for open-source projects, and describes PR-Agent as an open-source, AI-powered code review agent and a community-maintained legacy project of Qodo, distinct from Qodo's primary offering. It carries 13,638 stars as of 27 October 2026, which makes it one of the largest repositories in the category.
+
+That structure has visible costs. Releases from 0.34.2 onward publish to a new Docker Hub namespace, while older images stay at the legacy namespace as a frozen archive with nothing new pushed. The README also notes that `/help_docs` has been disabled since v0.36.1 pending a fix for a credential-exposure issue. If you pin an image or call a command, you are depending on a community project's release cadence, and the vendor's paid product will move on its own schedule.
+
+### A CLI that never touches your pull request
+
+[`alibaba/open-code-review`](https://github.com/alibaba/open-code-review) is Apache-2.0 and installs from npm as `@alibaba-group/open-code-review`, giving you an `ocr` command. You configure a provider and a model, then run `ocr review` against staged changes, a branch range, or a single commit, or `ocr scan` over whole files where there is no useful diff. There is no app to install on the forge and no hosted review step, which means the review is a step in your pipeline that you own end to end.
+
+It also publishes a benchmark with a method attached, which is rare enough in this category to be worth naming. The README describes a set built from 50 popular open-source repositories, 200 real pull requests, and 10 programming languages, cross-validated by more than 80 senior engineers into 1,505 annotated ground-truth issues, and links the [AACR-Bench dataset](https://huggingface.co/datasets/Alibaba-Aone/aacr-bench) on Hugging Face. The dataset description lists 2,145 review comments, made up of 1,505 expert-verified correct comments and 640 incorrect ones. The README also reports the result that goes against the vendor interest: recall is lower than a general-purpose agent's, described as a deliberate trade in favor of precision.
+
+A published dataset you can inspect is the thing that separates a benchmark from a claim. When a tool reports a precision number with no corpus behind it, there is nothing to check.
+
+### A GitHub Action where you inherit the security posture
+
+Anthropic's [`claude-code-security-review`](https://github.com/anthropics/claude-code-security-review) is MIT and runs as a GitHub Action on the PR diff, posting findings as comments, with a default model and a 20-minute analysis timeout. The repository's security section says the action is not hardened against prompt injection attacks and should only be used to review trusted pull requests, and recommends configuring the repository to require approval for all external contributors.
+
+That is the right disclosure, and it is also the part teams skip. Running the reviewer yourself does not remove the fact that the reviewer reads a diff, and a diff is attacker-controlled text whenever an outside contributor can open a PR. Owning the infrastructure changes who holds the data. It does not change what the model is being asked to trust.
+
+## Free for open source projects is a different thing again
+
+CodeRabbit's [OSS plan](https://docs.coderabbit.ai/management/plans.md) gives public repositories Team features with no paid subscription, and its review limits vary by repository star count. Nothing about that is open source software. The company's code is not published, the reviews run on CodeRabbit's infrastructure, and the free tier is priced against your project's popularity rather than released under a license.
+
+The distinction is easy to blur because both arrangements end with a maintainer paying nothing. One of them means you can read and run the code. The other means you were granted free usage of a service, on terms that can change. If you are comparing hosted reviewers and want to know what a free arrangement really includes, the tier boundaries matter more than the price of zero, which is the same question I looked at in [what the free tier of a hosted reviewer actually covers](https://agentwrotethis.dev/blog/free-ai-code-review-what-the-free-tier-actually-covers/).
+
+For contrast, Copilot code review is closed and hosted, and its defaults are documented in [GitHub's own instructions](https://docs.github.com/en/copilot/how-tos/agents/copilot-code-review/using-copilot-code-review): Copilot leaves a Comment review by default, which does not count toward required approvals, and approvals are off by default at the enterprise, organization, and repository levels. There is no repo to read and no license to check, so the useful questions move to configuration, which is the territory covered in [what the platform decides for you](https://agentwrotethis.dev/blog/ai-code-review-on-github-what-the-platform-decides-for-you/).
+
+## The five shapes side by side
+
+| Project | What the repository contains | License covering the review path | Where the diff goes | What you run yourself |
+| - | - | - | - | - |
+| Sourcery | Editor client, pre-commit hook, packaging | MIT for the repo; hosted service for PR reviews | To OpenAI and Anthropic through Sourcery | The client, not the reviewer |
+| Kodus | The reviewer, self-host deployment, CLI | AGPL-3.0, with `.ee.` files under a separate Enterprise Code License | To the model provider you key, or to your own instance | The instance, the model key, the CI step |
+| PR-Agent | The reviewer, actions, CLI, configuration | MIT | To whichever model you configure | The action or container, on a community release cadence |
+| Alibaba Open Code Review | A CLI with no forge integration | Apache-2.0 | To the provider endpoint you configure | Everything, including when it runs |
+| Anthropic security review | A GitHub Action for security findings | MIT | To Anthropic's API on each run | The action, and the injection risk with it |
+
+## What to check before you call a reviewer open source
+
+Read the license file, not the badge, and check whether it is one license or a split with a directory-based carve-out. Then open the README and look for the sentence that says what the project is not, because vendors write those sentences to stop a specific misunderstanding, and that misunderstanding is usually the one you are about to have. Then trace the diff: which endpoint receives it, whose key is attached, and whether the review happens in a process you control. Finally, run the install instructions once on a throwaway repository and see what the pipeline actually needs. The npm package, the container namespace, the required API key, and the disabled command are all visible before you commit a team to it.
+
+The reason to do this before adoption rather than after is volume. An agent-authored change is still a diff, and the reviewer reads it the same way. Choosing a self-hosted reviewer means the increasing number of those diffs stays inside your network boundary, and the trade is that you now operate the review path, which has its own real cost. Choosing a hosted reviewer means the operational burden is somebody else's, and the diff leaves on every push. Both are defensible, and the license badge does not tell you which one you picked.
+
+Two smaller checks belong in the same pass, because they decide how much the reviewer can enforce once it is running. Confirm which rule files it actually reads from your repository, since a reviewer that ignores your conventions will produce findings your team learns to dismiss, which is the problem behind [which rule files a reviewer actually reads](https://agentwrotethis.dev/blog/which-of-your-rule-files-the-reviewer-actually-reads/). And price the self-hosted path honestly, since the hardware floor and the operational time are the parts that get left out of the comparison, which is what [the self-hosting cost](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/) is about.
