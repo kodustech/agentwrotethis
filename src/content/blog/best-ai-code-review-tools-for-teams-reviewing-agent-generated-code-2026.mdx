@@ -1,0 +1,174 @@
+---
+title: "Best AI code review tools for teams reviewing agent-generated code (2026)"
+description: "Six AI code review tools ranked for teams whose pull request queue is dominated by agent output, with published limits, platform support, and a 20-developer pricing table."
+pubDate: 2026-10-30
+category: "best-of"
+tags: ["aicodereview", "codereview", "pullrequests", "agenticcoding"]
+faq:
+  - q: "What is the best AI code review tool for agent-generated pull requests?"
+    a: "There is no single best tool, because agent-heavy queues stress different limits than human-heavy ones. CodeRabbit has the most thoroughly documented limits and the widest platform support. GitHub Copilot code review is the cheapest addition for GitHub-only teams already buying Copilot seats. Kodus is the strongest fit when the requirement is checking a change against its task or applying one rule set across many repositories. Cursor Bugbot suits teams already on Cursor. Qodo suits teams enforcing standards across services. Greptile suits teams that want cost to follow review volume instead of seat count."
+  - q: "Do AI code reviewers limit how many reviews they will run?"
+    a: "Some do. CodeRabbit enforces a per-developer allowance that refills on a rolling hourly window: 1 review per hour on Free, 5 on Essentials, 8 on Team, 10 on Advanced and 12 on Enterprise, and its fair usage policy lowers the refill rate as recent activity rises, down to one per hour at a time at 60 or more reviews in seven days on Essentials. Kodus documents unlimited reviews on every plan, with the only hard cap being pull requests over 2,000 changed files. Cursor Bugbot caps how many reviews it runs on pull requests opened by bot accounts, per team. Copilot is metered in AI credits rather than reviews per hour."
+  - q: "What happens when an agent opens a very large pull request?"
+    a: "It depends on the tool. Cursor Bugbot skips pull requests above its review-size limit, measured in changed lines and diff characters, posts a comment asking you to split the change, and records no review usage for the skipped run. CodeRabbit caps files per review at 150 on Essentials and 300 from Team upward, counted after path filter exclusions, and can route eligible over-limit GitHub reviews to usage pricing. Kodus skips reviews above 2,000 changed files. Copilot's documentation does not publish a per-review file cap, so that number is unknown from the pages it publishes."
+  - q: "Which of these tools can run self-hosted?"
+    a: "Kodus offers a free Community plan that is self-hosted or cloud, plus Enterprise self-hosted with SSO, RBAC and audit logs. Greptile, CodeRabbit and Qodo list self-hosting on their Enterprise tiers only, with Qodo adding on-premises and air-gapped deployment. GitHub Copilot code review and Cursor Bugbot are cloud-only products. Self-hosting removes a per-seat review cap and adds an infrastructure and maintenance cost that usually exceeds the subscription it replaces."
+  - q: "Can an AI reviewer's approval clear a required approval on my branch?"
+    a: "Only if the repository is configured to allow it, and on most platforms the default is off. GitHub splits this into allowing approving reviews and then counting those approvals toward merge requirements, with a file path glob list that can narrow where an approval counts. Kodus documents suggestions as non-blocking by default, with request-changes and auto-approve as optional behaviours. Cursor Bugbot's check defaults to a neutral conclusion, so requiring the check makes Bugbot run before merge without blocking a merge on its findings."
+  - q: "How should I evaluate the benchmark numbers these vendors publish?"
+    a: "Ask for the method before the number. A percentage without a corpus, a grading rubric and a runner is a claim rather than a measurement, and several published comparisons omit all three. The parts you can verify are in documentation: rate limits, file caps, platform support, approval defaults and pricing. Those are also the parts that decide whether a reviewer keeps working once agents are producing the queue."
+---
+
+A queue dominated by agent output breaks differently from one dominated by human output, and the difference is in the count rather than the size of the changes. Agent pull requests tend to be small and numerous, which means the limit that bites first is usually the reviewer's own allowance, not its ability to read a large diff. That is why the ranking below is not organised around finding the most bugs. It is organised around which tools stay available when review events arrive faster than people do.
+
+Last updated: 2026-10-27.
+
+Six tools make the shortlist: CodeRabbit, GitHub Copilot code review, Kodus, Cursor Bugbot, Qodo, and Greptile. They are not interchangeable. Each one is the best fit under a different constraint, and the constraint matters more than the tool's feature count. A team that has to self-host is shopping in a different market from a team that wants the cheapest marginal review on GitHub.
+
+## How these were ranked
+
+The criteria are the ones that decide whether a reviewer survives contact with agent volume: published rate limits and file caps, documented platform support, what the reviewer is allowed to do at the merge gate, whether pricing is per seat or per unit of work, and whether configuration can be applied across an organisation rather than repository by repository.
+
+Vendor benchmark numbers are treated as claims unless a method and a dataset are published alongside them. Several of these vendors publish comparison charts with percentages attached. None of the ones I read publish the corpus, the grading rubric, or the runner. That does not make the numbers false. It makes them unverifiable, and a team choosing a reviewer on an unverifiable percentage is choosing on marketing. The parts I could check are the parts that show up in documentation: limits, tiers, supported platforms, and defaults.
+
+I also weighted what a reviewer may do to a merge request, because a comment and an approval are different products. A tool that only comments is advisory no matter how good its findings are, and the approval defaults across these tools differ enough to change the shape of your branch protection. The mechanics of that are worth reading separately, since the setting lives on the platform as much as in the tool.
+
+## 1. CodeRabbit
+
+CodeRabbit is the default answer for most teams and the one with the most published detail about its own limits, which is why it ranks first. Its [plans and pricing documentation](https://docs.coderabbit.ai/management/plans.md) lists five tiers plus a free and an open-source path, and it states the per-developer review allowance in a table instead of leaving it to a sales call.
+
+That table is also where the agent-volume problem shows up. The allowance is measured in reviews per developer per hour on a rolling window: 1 on Free, 5 on Essentials, 8 on Team, 10 on Advanced, 12 on Enterprise. Files per review run 150 on Free and Essentials, 300 from Team up. The number that matters for an agent-heavy repository is further down the page, under the fair usage policy: the refill rate drops as recent activity rises, down to one review per hour at a time for a developer who has run 60 or more reviews in the last 7 days on Essentials.
+
+That is the failure mode to plan around. An incremental review on every push means three commits pushed one at a time spend three review events while three commits pushed together spend one. Agent workflows produce pushes. The allowance erodes from the shape of the workflow rather than from anyone deciding to run more reviews, and the symptom arrives as a rate-limit notice on a pull request. I went through [which limit binds first for each vendor](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) if you want the arithmetic in full.
+
+Where CodeRabbit fits best: teams on GitHub, GitLab, Bitbucket or Azure DevOps who want one reviewer across all of them, and who will actually read the rate-limit table before adoption. Where it fits badly: an agent-heavy repository on Essentials where a handful of developers push many small changes a day.
+
+## 2. GitHub Copilot code review
+
+Copilot's advantage is that the reviewer is already inside the platform you are paying for, and the marginal cost of a review is measured in credits rather than a new subscription line. Its [billing documentation for organisations](https://docs.github.com/en/copilot/concepts/billing/organizations-and-enterprises) puts Copilot Business at $19 per user per month with 1,900 AI credits per user, and Copilot Enterprise at $39 with 3,900, available on GitHub Enterprise Cloud only. Credits pool across the enterprise, and usage past the pool is charged at $0.01 per credit.
+
+Two things about that arrangement matter more than the headline price. First, credits pool, so a twenty-developer organisation is budgeting 38,000 credits a month on Business rather than twenty separate allowances. Second, attribution decides who pays. An automatic review is attributed to the pull request author by default, and reviews of pull requests opened by bots are billed to the organisation. In a repository where agents open most of the pull requests, the consumption lands on the org pool regardless of who is on holiday.
+
+The reviewer is GitHub-only. Copilot code review runs on GitHub cloud and GitHub Enterprise Cloud, so a team supporting GitLab alongside GitHub needs a second tool for the other half of its repositories. The approval path also starts closed: GitHub documents the approval toggles as off by default, and the ability to configure automatic review is not available on the free Copilot plan. I covered the toggle layout and the path globs in [which reviewer approvals satisfy a merge requirement](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/), because enabling one of those toggles by accident is the mistake with the worst consequences.
+
+Where Copilot fits best: GitHub-only teams already buying Copilot seats, where a second vendor would mean a second security review. Where it fits badly: mixed-platform organisations, and teams that need the reviewer's approval to carry weight on specific paths rather than repository-wide.
+
+## 3. Kodus
+
+Kodus is the one on this list whose published limits are mostly about features rather than throughput, and that is the honest reason it sits third rather than higher or lower. Its [pricing documentation](https://docs.kodus.io/en/how_to_use/pricing.md) states that reviews are unlimited on every plan, that the only hard cap is pull requests over 2,000 changed files, and that every plan runs on bring-your-own-key, with tokens billed by your provider and no markup from Kodus. The seats are $10 per active developer per month on Teams, $0 on Community, and custom on Enterprise. Only developers who open pull requests count as active.
+
+Two documented capabilities are directly aimed at agent-generated changes, and both are worth checking against what your team actually does. The first is [business logic validation](https://docs.kodus.io/en/how_to_use/code_review/business_logic_validation.md), which finds the task a pull request references in Linear, Jira, Notion or Git issues, reads it, and lists each requirement with where it stands in the diff. Requirements come back as MET, PARTIAL, MISSING, CHECK MANUALLY or NOT IN TASK, and each row cites the file and line it is based on. Kody reads code the pull request calls but did not change before it marks anything missing, which is the part that keeps a requirements check from becoming a nag. The output is a comment, so it does not block a merge on its own.
+
+The second is [global rule sources](https://docs.kodus.io/en/how_to_use/code_review/configs/global_rule_sources.md). You point Kodus at one or more connected repositories that hold your standards, and the rule files found there are imported as global rules that apply to every repository during review, refreshed when a pull request merges in a source repo. On the trial plan the import is capped at five rules; paid cloud and licensed self-hosted are unlimited, and the free plan does not include the feature at all.
+
+The trade-offs are real. Teams is cloud-only, so the $10 seat price does not buy you self-hosting, and self-hosting means Community or an Enterprise contract. Governance features that a regulated team will look for first, meaning SSO/SAML, RBAC and audit logs, sit in Enterprise only. Running on your own key also means owning model selection and spend, which is a small ongoing operational cost that a bundled-token vendor hides inside its seat price. The [self-hosted CLI setup](https://docs.kodus.io/en/how_to_use/cli/self_hosted.md) covers the parts that go wrong: HTTPS is required, team keys and CI tokens are separate auth paths, and Cloudflare Access needs service token credentials in the environment.
+
+Where Kodus fits best: teams that need the reviewer to check a change against the task it claims to close, teams rolling one rule set across many repositories, and teams that need self-hosting without a per-seat review cap. Where it fits badly: a team that wants zero operational work around model keys and no interest in requirement-level checking, since the seat price advantage is the only thing left and it comes with that work attached.
+
+## 4. Cursor Bugbot
+
+Bugbot is the right pick for teams that already standardised on Cursor, and its documentation is unusually specific about what it will not review. It runs on every pull request update or on the `cursor review` command, reads existing pull request comments so it does not repeat a suggestion someone already made, and links each finding back into Cursor or the web agent.
+
+The limits are the interesting part. Bugbot [skips pull requests above a review-size limit](https://cursor.com/docs/bugbot) measured in changed lines and diff characters, and posts a comment asking you to split the change. A skipped run records no review usage, so the cap costs you nothing but does mean a large agent change goes unreviewed by this tool. Files marked `linguist-generated` in `.gitattributes` are excluded and do not count toward the size limit, which is a useful lever when a code generator inflates a diff.
+
+The second limit is the one to read closely if agents open your pull requests. Bugbot caps how many reviews it runs on pull requests opened by bot accounts, per team, and every review counts including repeat reviews of the same pull request. The cap is a default and your team's can differ, but the direction is clear: agent-opened pull requests are metered differently from human-opened ones.
+
+The merge path needs one setting changed to be worth anything. Bugbot publishes a check per run, and findings default to the `neutral` conclusion. Requiring that check in branch protection makes Bugbot run before merge, and does not block a merge on its findings. Unresolved findings only produce a failing status if the fail-on-unresolved-issues behaviour is available for your organisation and enabled.
+
+Where Bugbot fits best: Cursor teams, especially those using it alongside Cursor's cloud agents, who want findings to flow back into the editor. Where it fits badly: teams where bot-authored pull requests are the majority and the review cap becomes the binding constraint.
+
+## 5. Qodo
+
+Qodo's pitch is standards enforcement rather than diff commentary, and the parts that support it are aimed at exactly the problem agent volume creates. Its [pricing page](https://www.qodo.ai/pricing/) lists agentic pull request review, an unlimited rules system, cross-repo review for catching breaking changes before they reach dependent services, and a software map of how repositories and contracts connect. For a team whose agents are editing service boundaries, cross-repo context is the capability that a single-repository reviewer cannot substitute for.
+
+Pro Team is $30 per user per month with no annual commitment, described as designed for up to 30 users, and it includes unlimited reviews. Credit packs are available separately at $0.012 per credit, pooled across the team, with the vendor's own conversions printed next to them: 2,500 credits for roughly 18 reviews a month, 5,000 for roughly 36, and 20,000 for roughly 144. Those ratios are the vendor's, not a measurement, and they imply a fairly deep per-review token budget. Treat them as a signal about review depth rather than a cost forecast.
+
+The capabilities that regulated teams ask about sit on Enterprise: SSO/SAML, audit logs, bring-your-own-key, single-tenant SaaS, and on-premises or air-gapped deployment. Gerrit support is also listed as Enterprise-only, which matters if your organisation is one of the ones still on Gerrit.
+
+Where Qodo fits best: teams enforcing organisational standards across many repositories, and teams that need cross-repo contract checking. Where it fits badly: a small team that wants a cheap per-seat reviewer and has no interest in the standards lifecycle, since the price lands above several alternatives.
+
+## 6. Greptile
+
+Greptile is last on fit for agent-heavy queues, and first on a different axis: it is the only tool here that does not charge per seat. Its [pricing page](https://www.greptile.com/pricing) lists Pro at $1 per credit with no seat fees, unlimited developers and agents, and credits shared across the whole organisation. Starter is free for one active developer with 50 credits a month. Review depth is priced: a base review costs 1 credit, Plus costs 3, Apex costs 10.
+
+That model has a specific consequence for a team whose queue is full of agent changes. Cost tracks review volume rather than headcount, so adding reviewers is free and adding agents is not. A twenty-developer team running one base review per developer per working day lands near 420 credits a month, which is $420. Run the same volume through Plus reviews and it is $1,260. The variable is depth, not seats, so the budget question becomes how deep you want the reviewer to look on routine agent changes.
+
+Enterprise adds self-hosting, SSO and SAML, role-based access control, and support for GitHub Enterprise Server and Cloud with data residency, GitLab Self-Managed, Bitbucket Data Center, Gitea, and Perforce. Starter and Pro do not include those. Greptile is also free for qualified non-commercial projects with an OSI-approved licence, and pre-Series A startups under $2M revenue get 500 credits a month for six months.
+
+Where Greptile fits best: teams that want cost to follow work rather than headcount, and organisations with an unusual version control platform. Where it fits badly: teams that need a predictable monthly line item, because a credit meter that scales with review depth is not a number you can forecast from a seat count.
+
+## Platform support
+
+| Tool | GitHub | GitLab | Bitbucket | Azure DevOps | Self-hosted option | IDE or CLI |
+| --- | --- | --- | --- | --- | --- | --- |
+| CodeRabbit | Yes | Yes | Yes | Yes | Enterprise tier | VS Code extension, CLI |
+| GitHub Copilot code review | Yes, cloud and Enterprise Cloud | No | No | No | No | IDE review is a separate product |
+| Kodus | Yes | Yes | Yes | Yes | Community and Enterprise | Kodus CLI, coding-agent integrations |
+| Cursor Bugbot | Yes, incl. Enterprise Server | Yes, incl. self-hosted | Yes, incl. Data Center | Yes (Services) | No for Bugbot | Findings link back into Cursor |
+| Qodo | Yes | Yes | Yes | Yes | Enterprise: single-tenant, on-prem, air-gapped | Git and IDE integrations, pre-PR skills |
+| Greptile | Yes, incl. Enterprise Server and Cloud | Yes, incl. Self-Managed | Yes, incl. Data Center | Not listed | Enterprise | Not listed on the pricing page |
+
+Two notes on reading this table. Kodus also lists Forgejo, which I have left out of the column set because no other tool here supports it and it would make the table harder to scan. Copilot's absence from GitLab is not a configuration gap; Copilot code review is a GitHub product.
+
+## What a 20-developer team pays
+
+Prices below are list prices from each vendor's own pricing page or documentation. Month-to-month and annual columns differ only where the vendor publishes two rates.
+
+| Tool and tier | Per-seat or unit price | 20 developers, monthly | 20 developers, annual billing | Not included |
+| --- | --- | --- | --- | --- |
+| CodeRabbit Essentials | $30/dev/mo, or $24 annual | $600 | $480 | Over-limit reviews need the usage-based add-on |
+| CodeRabbit Team | $60/dev/mo, or $48 annual | $1,200 | $960 | Security review needs Advanced |
+| GitHub Copilot Business | $19/user/mo | $380 | $380 | Credits past the pooled 38,000 at $0.01 each |
+| GitHub Copilot Enterprise | $39/user/mo | $780 | $780 | GitHub Enterprise Cloud only |
+| Kodus Teams | $10/active dev/mo | $200 | $200 before the 20% annual discount | LLM tokens, billed by your provider (BYOK) |
+| Cursor Teams, Bugbot included | $30+/user/mo | $600+ | Not published as a single rate | Third-party model usage, billed separately |
+| Qodo Pro Team | $30/user/mo | $600 | No annual commitment on this tier | Credit packs at $0.012/credit if you buy them |
+| Greptile Pro | $1/credit, no seat fee | Usage-based; ~420 base reviews is ~$420 | Same | Plus and Apex reviews cost 3 and 10 credits |
+
+The comparison that matters for agent-heavy queues is not the monthly total. It is what happens in month three, when review volume has doubled and the seat count has not. A per-seat tool bills the same. A per-credit tool bills more. A tool with an hourly refill rate starts refusing reviews. Those are three different budget risks, and a team should pick the one it can actually absorb. For smaller teams the free tiers behave differently enough from each other that [the free tier comparison is worth reading on its own](https://agentwrotethis.dev/blog/free-ai-code-review-what-the-free-tier-actually-covers/).
+
+## Picking by constraint
+
+Start from the constraint that will not move, not from the feature you like most.
+
+If you are GitHub-only and already paying for Copilot seats, Copilot code review is the cheapest review you can add, because the credits are already in the pool and the integration is already approved. Configure the approval toggles deliberately and restrict which paths a bot approval counts on.
+
+If you support GitHub and GitLab, or any two platforms, you are choosing between CodeRabbit and Kodus. CodeRabbit has the broader paid feature set and the more explicit rate-limit documentation. Kodus has the lower seat price and no per-review cap, and you pay for that in token operations and in Enterprise-gated governance.
+
+If you must self-host, the realistic shortlist is Kodus, Greptile, CodeRabbit Enterprise, and Qodo Enterprise, and the licence is the smallest part of the cost. Infrastructure plus maintenance usually outweighs the subscription it replaces, and the published estimate for a self-hosted stack is a different order of magnitude from a per-seat licence. I worked through [what self-hosting actually costs](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/) with the method attached, because the numbers circulating without a method are misleading.
+
+If your requirements live in a tracker and your agents routinely ship a partial implementation, requirement-level checking is the capability to buy, and Kodus is the tool on this list that documents it in detail. Everything else here reviews the diff. Reading the diff cannot tell you that a requirement in the ticket was never implemented.
+
+If your agents open most of the pull requests, read three specific things before you choose: the refill bands on CodeRabbit's fair usage policy, the bot-authored pull request cap on Bugbot, and the credit attribution rules on Copilot. Each one is documented, and each one changes what the same monthly bill buys once agents, rather than people, are producing the queue.
+
+If you need cost to follow work rather than headcount, Greptile's credit model is the only one here without seat fees, and the depth multiplier is the number to model before committing.
+
+If your constraint is that a reviewer must not be able to block anything, that is a configuration decision rather than a product one, and every tool on this list can be run in a comment-only mode. Kodus documents non-blocking as its default and recommends enabling blocking only where thresholds and CI are settled, which is the safer starting position for most teams.
+
+## FAQ
+
+**What is the best AI code review tool for agent-generated pull requests?**
+
+There is no single best tool, because agent-heavy queues stress different limits than human-heavy ones. CodeRabbit has the most thoroughly documented limits and the widest platform support. GitHub Copilot code review is the cheapest addition for GitHub-only teams already buying Copilot seats. Kodus is the strongest fit when the requirement is checking a change against its task or applying one rule set across many repositories. Cursor Bugbot suits teams already on Cursor. Qodo suits teams enforcing standards across services. Greptile suits teams that want cost to follow review volume instead of seat count.
+
+**Do AI code reviewers limit how many reviews they will run?**
+
+Some do. CodeRabbit enforces a per-developer allowance that refills on a rolling hourly window: 1 review per hour on Free, 5 on Essentials, 8 on Team, 10 on Advanced and 12 on Enterprise, and its fair usage policy lowers the refill rate as recent activity rises, down to one per hour at a time at 60 or more reviews in seven days on Essentials. Kodus documents unlimited reviews on every plan, with the only hard cap being pull requests over 2,000 changed files. Cursor Bugbot caps how many reviews it runs on pull requests opened by bot accounts, per team. Copilot is metered in AI credits rather than reviews per hour.
+
+**What happens when an agent opens a very large pull request?**
+
+It depends on the tool. Cursor Bugbot skips pull requests above its review-size limit, measured in changed lines and diff characters, posts a comment asking you to split the change, and records no review usage for the skipped run. CodeRabbit caps files per review at 150 on Essentials and 300 from Team upward, counted after path filter exclusions, and can route eligible over-limit GitHub reviews to usage pricing. Kodus skips reviews above 2,000 changed files. Copilot's documentation does not publish a per-review file cap, so that number is unknown from the pages it publishes.
+
+**Which of these tools can run self-hosted?**
+
+Kodus offers a free Community plan that is self-hosted or cloud, plus Enterprise self-hosted with SSO, RBAC and audit logs. Greptile, CodeRabbit and Qodo list self-hosting on their Enterprise tiers only, with Qodo adding on-premises and air-gapped deployment. GitHub Copilot code review and Cursor Bugbot are cloud-only products. Self-hosting removes a per-seat review cap and adds an infrastructure and maintenance cost that usually exceeds the subscription it replaces.
+
+**Can an AI reviewer's approval clear a required approval on my branch?**
+
+Only if the repository is configured to allow it, and on most platforms the default is off. GitHub splits this into allowing approving reviews and then counting those approvals toward merge requirements, with a file path glob list that can narrow where an approval counts. Kodus documents suggestions as non-blocking by default, with request-changes and auto-approve as optional behaviours. Cursor Bugbot's check defaults to a neutral conclusion, so requiring the check makes Bugbot run before merge without blocking a merge on its findings.
+
+**How should I evaluate the benchmark numbers these vendors publish?**
+
+Ask for the method before the number. A percentage without a corpus, a grading rubric and a runner is a claim rather than a measurement, and several published comparisons omit all three. The parts you can verify are in documentation: rate limits, file caps, platform support, approval defaults and pricing. Those are also the parts that decide whether a reviewer keeps working once agents are producing the queue.
+
+Claims checked 2026-10-27 against each vendor's own documentation and pricing page.
