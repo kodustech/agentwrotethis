@@ -1,0 +1,69 @@
+---
+title: "Reduce review noise: which layer each reviewer turns down"
+description: "Three vendors, three volume settings: Copilot's review effort level, CodeRabbit's profile and suppression flag, Kodus's severity floor and rule exemption."
+pubDate: 2026-10-31
+category: "comparison"
+tags: ["aicodereview", "codereview", "pullrequests", "reviewmetrics"]
+---
+
+Every AI reviewer ships a control for cutting review volume, and those controls sit at different stages of the pipeline. GitHub Copilot's is a depth dial. CodeRabbit's default profile decides where a comment appears. Kodus puts a floor under severity and lets your own rules step over it. Same intent, three different mechanisms, and the mechanism decides what you can actually get out of it.
+
+That matters most on the repositories where agents do the writing. A generated pull request is usually large, plausible and cheap to produce, so the volume of comments it attracts is a setting you will reach for. Knowing which layer you are turning down is the difference between quieter reviews and thinner ones.
+
+## Depth is a cost dial, and it can fall back without telling you
+
+Copilot code review has a review effort level with three settings, and the [configuration steps](https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review) describe them plainly. Lite is a standard review. Balanced does deeper analysis of complex logic, security-sensitive code and cross-service changes. Max is listed with a Coming soon label and is not available yet. Until you pick a level, the control shows the built-in default, Balanced.
+
+Two details in that page are worth more than the setting itself. Effort is independent of automatic review: turning automatic review off does not clear your effort level, and it still applies to reviews you request by hand. If you had a mental model where the expensive mode and the automatic mode are the same switch, they are not.
+
+The second is what the levels cost. GitHub's [estimated consumption figures](https://docs.github.com/api/article/body?pathname=/en/copilot/concepts/agent-capabilities/agent-powered-workflows-and-operations/code-review) put a review at roughly $0.05 to $1 of AI credits at Lite and $0.25 to $5 at Balanced, and those estimates exclude GitHub Actions minutes. Consumption rises with pull request size and with repository custom instructions. The Balanced ceiling is a hundred times the Lite floor, which tells you how much a large generated diff moves the number.
+
+Then there is the failure path. The agentic parts of Copilot review run on GitHub Actions runners, and the same page describes what happens without them: reviews are still generated, but without the features the agentic capabilities provide. Disabling GitHub-hosted runners produces the same outcome, described as a fallback to a more limited review. Nothing in that description says the posted review is marked as the reduced version. A reader scrolling the thread sees comments with High, Medium and Low labels, and the labels look the same either way.
+
+That is the depth question in its practical form. If your runner configuration changes and reviews quietly get shallower, the artifact in the pull request does not tell you.
+
+## CodeRabbit's default profile changes placement
+
+CodeRabbit approaches volume from a different angle. Its [configuration reference](https://docs.coderabbit.ai/reference/configuration.md) lists `reviews.profile` with three values and a default of chill. quiet posts only the most important comments inline and groups the rest in the review summary. assertive adds more feedback, which the doc notes may feel nitpicky.
+
+The distinction that matters is placement rather than detection. With quiet, the less important comments still exist, they are collected in the summary instead of sitting on the lines. If your reviewers treat an absence of inline comments as an absence of findings, quiet will confirm that belief while the findings sit one section up.
+
+Where CodeRabbit does filter, it filters on whether a review runs. The [automatic review controls](https://docs.coderabbit.ai/configuration/auto-review.md) document `ignore_title_keywords`, a case-insensitive substring match on the title, and `ignore_usernames`, which is exact and case-sensitive with no wildcards. Both skip the review silently, in the documented wording. For the username list the doc warns that a single character difference, or uppercase where the platform expects lowercase, means the pull request gets reviewed after all. This is the control you want for bot authors such as dependabot, and it is also the one most likely to be wrong in a way nothing reports.
+
+There is a separate volume brake. `auto_pause_after_reviewed_commits` defaults to 5 and pauses automatic reviews once a pull request has had that many reviewed commits. Manual commands still work regardless of any auto-review configuration, so a long-running pull request can stop receiving automatic passes with no notification to anyone.
+
+One more setting answers the suppression question directly. `reviews.review_details` defaults to false and, when switched on, posts ignored files, extra context used and suppressed comments. What the reviewer chose not to say is off the default surface. If you want that visible, this is the toggle.
+
+## Kodus puts the floor on severity and exempts your own rules
+
+Kodus's control is a floor rather than a profile. The [severity threshold page](https://docs.kodus.io/en/how_to_use/code_review/configs/suggestion_control.md) describes a Minimum severity to post setting with four levels, Low/All, Medium (the default), High and Critical, settable at the global, repository or directory level. The semantics are stated outright: Kody still finds lower-severity issues, it just does not comment on them. Raising the floor changes what you read, not what was detected.
+
+The part worth reading twice is the exemption. There is a toggle for applying the threshold to Kody Rules and it ships off by default. With it off, a rule your team wrote always reports, whatever severity it lands on, because the team already decided that rule matters. Turning it on pushes your own rules through the same floor as everything else. That is a real choice about whether team-written policy outranks a generic volume setting, and the default answer is yes.
+
+The config form is `suggestionControl.severityLevelFilter` plus `applyFiltersToKodyRules` in `kodus-config.yml`, with a catch the doc states: the file is only read once `kodusConfigFileOverridesWebPreferences` is enabled. A team that writes the YAML and leaves that flag alone has configured nothing.
+
+## What the difference looks like on a review thread
+
+Put the three side by side and the differences are not about which one is quieter.
+
+| | GitHub Copilot code review | CodeRabbit | Kodus |
+| --- | --- | --- | --- |
+| Control that changes volume | Review effort level | `reviews.profile` | Minimum severity to post |
+| Default | Balanced | chill | Medium |
+| Where it acts | How much analysis runs | Where comments are placed | Which severities are posted |
+| Per-repository setting | Yes, ruleset or repository settings | Yes, `.coderabbit.yaml` in the repo | Yes, repository and directory level |
+| Cost attached to the setting | $0.05 to $1 Lite, $0.25 to $5 Balanced per review in AI credits, plus Actions minutes | Unknown, the reference page attaches no cost to profile | Unknown, the severity page attaches no cost to the floor |
+| Effect on team-written rules | No separate rule layer documented | Learnings, not a rule layer | Kody Rules exempt by default, `applyFiltersToKodyRules` flips it |
+| Does the posted review name the setting that produced it | Unknown | Unknown | Unknown |
+
+The last row is the one I would put in front of a platform team. None of the three vendor pages states that a posted review identifies the effort level, profile or severity floor in effect. That is a claim about those pages, not about every surface each product has, so treat it as unknown and check your own threads.
+
+## A habit that makes the setting visible
+
+The useful practice is smaller than a policy. When you change any of these controls, record the setting and the date in the pull request or in the review configuration commit, the way you would note a linter version. The posted review usually does not carry that context, so you have to add it.
+
+It pays off later. When a reviewer's output changes shape, the note tells you whether a setting moved. When someone asks why a class of comment disappeared, the answer is in the thread rather than in a settings audit.
+
+For anyone choosing where to start, the defaults are reasonable and they are not equivalent. Copilot's Balanced default is the mid-cost option, so a team watching spend has a concrete reason to try Lite on repositories where review is mostly a second pair of eyes. CodeRabbit's chill default buries the minor comments in the summary, so if your reviewers read only inline comments, changing the profile alters what they see more than any filtering rule would. Kodus's Medium default with the rule exemption means your own standards already outrank the floor, which is the behavior most teams want and few verify.
+
+One caution applies to all three. A vendor's page tells you what the setting does, not what your queue looks like after you change it. That takes a week and a look at what actually got posted.
