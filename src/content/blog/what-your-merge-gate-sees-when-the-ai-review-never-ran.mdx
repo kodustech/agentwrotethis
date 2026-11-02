@@ -1,0 +1,84 @@
+---
+title: "What your merge gate sees when the AI review never ran"
+description: "A skipped or rate-limited AI review still reports success on GitLab, Azure DevOps and Bitbucket. What each provider's check can and cannot tell your gate."
+pubDate: 2026-11-02
+category: "comparison"
+tags: ["aicodereview", "codereview", "gitlab", "azuredevops"]
+---
+
+A required status check is supposed to assert that something looked at the change. On CodeRabbit, several of the states a review can end in report success to that check while no review ran at all. The vendor's own [status check page](https://docs.coderabbit.ai/pr-reviews/status-check.md) lists every state and what each one passes: Skipped and Rate limited both count as passing for a required check, and so do the descriptions No reviewable changes and Prior review carried forward.
+
+That is a documented design decision rather than a defect, and it is not the interesting part. The interesting part is that how visible those states are depends on the provider, not on the reviewer. On GitHub you get a check run with a title, so a skipped review reads Skipped and a rate-limited one reads Neutral. On GitLab, Azure DevOps and Bitbucket, CodeRabbit reports a commit status instead, and those platforms have no skipped or neutral state at all, so a review that never ran reports success and the description carries the explanation in prose.
+
+If your team watches the merge box rather than the review thread, the difference between a clean review and no review is one line of status text, on a commit that is already green.
+
+## The states that mean nothing was reviewed
+
+CodeRabbit publishes seven states, and the useful way to read the table is by asking which ones a branch rule will accept. Pending blocks, which is correct. Passed means the review ran. Failed only fails the check when `reviews.fail_commit_status` is true, so by default even an errored review passes. Cancelled does not pass, and it only exists on GitHub. Missing blocks, and it happens when CodeRabbit never received the event, a newer push replaced the commit before the review started, or the credential lacks permission to post statuses.
+
+Skipped and Rate limited are the two worth sitting with. Skipped covers drafts, ignored authors, disabled automatic review, path filters, size limits, and a paused conversation. Rate limited means a usage limit stopped the review, and the vendor tells you to comment `@coderabbitai rate limit` to find out when reviews are available again. Both report success to your branch rule. A path filter configuration that excludes every changed file produces an approved, green pull request that no reviewer read, and the only trace is a status description.
+
+The mitigations exist and are worth knowing. `@coderabbitai full review` overrides configuration skips such as drafts, ignored authors and disabled automatic review, though not a locked conversation or a pull request with no reviewable files. And on GitLab, Azure DevOps and Bitbucket, a skipped commit can inherit the status of the most recently reviewed commit, so a failure from an earlier commit can appear on a head commit nobody reviewed. A later successful review replaces it.
+
+## What each provider's check can tell you
+
+The mechanism is where the platforms diverge, and it changes what you can automate.
+
+| Provider | What the reviewer posts | Distinct state for "did not run" | What a required check accepts |
+| - | - | - | - |
+| GitHub and GitHub Enterprise Server | Check run when `reviews.review_progress` is true, commit status otherwise | Yes: Skipped and Neutral | Passed, and also Skipped and Rate limited |
+| GitLab | Commit status | No | Success, including skipped and carried-forward reviews |
+| Azure DevOps | Commit status, with platform naming such as succeeded | No | Succeeded, including skipped reviews |
+| Bitbucket Cloud | Commit status, shown as a build status | No | Success, including skipped reviews |
+| GitHub with self-hosted CodeRabbit | Commit status | No | Success, including skipped reviews |
+
+Read the third column against the fourth. Only on GitHub does the platform give you a state you can alert on separately. Everywhere else, a rule that requires the reviewer's check is satisfied by a review that did not happen, and your only signal is the wording of a description field. That is a real limitation of the arrangement, and it is one reason a required AI check on a non-GitHub provider should not be the only thing standing between a change and the default branch.
+
+GitLab teams already carry a second constraint here. The [tier decides more than the price](https://agentwrotethis.dev/blog/ai-code-review-on-gitlab-what-the-tier-decides/) on that platform, and CodeRabbit's request-changes workflow is not available on GitLab at all, which removes the approval-based surface and leaves you with the commit status and its no-skipped-state behaviour. If you are on GitHub, the [platform decides the trigger, the checkout and the permissions](https://agentwrotethis.dev/blog/ai-code-review-on-github-what-the-platform-decides-for-you/) before any of this matters, and it is also the one provider where the check has a state you can distinguish.
+
+## The reviewer that has no check to require
+
+Kodus takes the opposite approach, and the trade-off runs both ways. Its [review flow documentation](https://docs.kodus.io/en/how_to_use/code_review/flow.md) reports status as emoji reactions rather than a commit status: a rocket while processing, a party emoji on completion, eyes for skipped, a thumbs-down for an unlicensed author, and a confused face for an error. Native reactions work on GitHub, GitLab and Forgejo. Azure DevOps and Bitbucket have no reaction API, so Kody falls back to posting the status emoji as a comment instead, and the progress pair does not appear there at all.
+
+The consequence is that Kodus cannot be a required status check on any provider. There is nothing for a branch rule to require. That is a genuine gap if you wanted the reviewer wired into your merge gate, and it is worth stating plainly rather than dressing up.
+
+The other side of it is that Kodus cannot produce a false green either. There is no check that a skipped run can pass, because there is no check. The review state itself is the enforcement surface: approve or request changes, when those are enabled, and its [review policy](https://docs.kodus.io/en/how_to_use/code_review/policy.md) starts with suggestions posted as non-blocking and recommends enabling blocking only after your team has agreed the thresholds and has strong CI in place. You cannot accidentally end up with a green gate over an unreviewed change, because you never had the green gate.
+
+## Approval is a narrower surface than review
+
+If the check is a weak surface, the approval is a narrower one, and it is provider-limited in ways that are easy to miss during a trial on GitHub.
+
+Kodus hides the request-changes toggle entirely when GitLab is your only connected platform, and lists the platforms that support it as GitHub, Bitbucket, Azure Repos and Forgejo. Conditional auto-approve has its own restrictions: Bitbucket ignores labels, and on Azure Repos labels are unsupported, so the documentation states that while labels are configured every pull request is held for a person. Code history for the risk assessment is collected on GitHub and GitLab only, and on Bitbucket, Azure Repos and Forgejo Kody assesses without it. A file with no history is not treated as safe, which is the conservative direction, and it also means the assessment is weaker on those providers than the marketing copy suggests.
+
+CodeRabbit's slop detection has the same shape of asymmetry. It runs on all four platforms, but the author exemptions differ by provider, Bitbucket cannot do label-based rechecks, and Azure DevOps requires the Essentials plan even for public projects. Whether the feature is available and whether it behaves the same way are two separate questions.
+
+Copilot is the one that keeps its approval surface inside a single platform. Its [code review documentation](https://docs.github.com/en/copilot/concepts/code-review/code-review) covers GitHub.com, the CLI, Mobile, VS Code, Visual Studio, Xcode, JetBrains IDEs and Azure DevOps in public preview, and the approval controls live in repository settings on GitHub. Where those controls do not exist, the review still posts and the approval cannot be granted, which is a different failure from a check that passes.
+
+## What to change in your own settings
+
+The first thing to check is whether the reviewer's check is the only thing between an unreviewed change and your default branch. On GitHub, that is defensible, because a skipped review has its own state. On GitLab, Azure DevOps and Bitbucket, pair the required check with a required human review, since the check will accept a run that did not happen. The work of [counting what a reviewer actually carries](https://agentwrotethis.dev/blog/how-much-of-code-review-an-ai-reviewer-actually-carries/) only means something once you know which runs reached your gate at all.
+
+The second is to stop reading the merge box as evidence. Three numbers come out of data you already have. The count of commits where the reviewer's check was posted but the review thread has no findings for that commit, which is how a skip looks from outside. The count of pull requests merged where the head commit was pushed after the last review. And the count of approvals dismissed per pull request, because on GitHub a push after an approval dismisses it and stale-review dismissal is a setting you can turn on.
+
+The third is to write down which provider you are on before you compare tools, because the same product documents different behaviour on each. A demo on GitHub tells you nothing about the check semantics you will get on Bitbucket, and the auto-approve conditions you configure on GitHub may simply be ignored where you actually run.
+
+Provider support is the easy question to answer, and it is the wrong one to lead with. What decides whether a reviewer is load-bearing is whether the platform can tell you the difference between a review that found nothing and a review that never started.
+
+## FAQ
+
+**Does a green CodeRabbit check mean the review ran?**
+No. Skipped and Rate limited both count as passing for a required check, and on GitLab, Azure DevOps and Bitbucket there is no skipped state, so the commit status reports success and the description says what happened. Only GitHub gives the skipped case its own visible state.
+
+**Can Kodus be a required status check?**
+No. Kodus reports review status as emoji reactions on GitHub, GitLab and Forgejo, and as a comment on Azure DevOps and Bitbucket, so there is no commit status or check run for a branch rule to require. Its enforcement surface is the review state, approve or request changes, where the platform supports it.
+
+**Which platforms support Kodus request-changes?**
+GitHub, Bitbucket, Azure Repos and Forgejo. The toggle is hidden when GitLab is your only connected platform.
+
+**Does conditional auto-approve work the same everywhere?**
+No. Kodus documents labels as ignored on Bitbucket and unsupported on Azure Repos, where configuring labels means every pull request is held for a person. Code history used by the risk assessment is collected on GitHub and GitLab only.
+
+**What should a GitLab team do about the missing skipped state?**
+Require a human review alongside the reviewer's commit status, and treat the status description as the signal to monitor. There is no platform state to alert on, so the check cannot be the whole gate.
+
+Platform support, defaults and per-review pricing in this category move monthly. Re-check a row against the vendor's own documentation before you rely on it in a branch rule.
