@@ -1,0 +1,61 @@
+---
+title: "What an AI reviewer can read on a large pull request"
+description: "CodeRabbit, GitHub Copilot and Kodus each document a different limit on a large pull request. The numbers, and what you get past them."
+pubDate: 2026-11-04
+category: "comparison"
+tags: ["aicodereview", "codereview", "pullrequests", "agenticcoding"]
+---
+
+Every reviewer that documents a limit on how large a pull request it will read draws that line somewhere different, and where the line sits changes what comes back more than the model behind it does. CodeRabbit publishes hard numbers for the point where it stops assembling a diff. GitHub publishes a price range per review that grows with the size of the change. Kodus caps the number of reviewable files it will take on and filters findings by severity before posting any of them. A large change can come back incomplete from all three, and the shape of the incompleteness differs each time.
+
+The numbers below are all from the vendors' own pages, linked where each one appears.
+
+## Why the reading surface is the thing that breaks first
+
+An agent task that touches 400 files is not unusual. It refactors a module, updates its tests, regenerates a lockfile, and edits a few configs in the same commit. The review of that change happens on an artifact the review tool assembles: a diff, a summary, a set of comments. That assembly step is where the first hard limits show up, and they are usually smaller than people assume.
+
+This matters because the artifact is the whole basis for the decision. If the tool refuses part of the diff or narrows what it will comment on, the human reading the pull request is still approving the same commit. Nothing in the merge button changes to reflect that less of the change was examined.
+
+## Where the diff stops being assembled
+
+CodeRabbit's [Change Stack](https://docs.coderabbit.ai/change-stack/reading-diffs.md) reads a GitHub pull request through the provider's compare API until the change is large enough to defeat it, then switches to a raw diff with hard bounds. The compare path stops being used at 300 files. Past that, the raw diff has its own ceiling, and the [provider support page](https://docs.coderabbit.ai/change-stack/provider-support.md) lists it: a diff is refused once the change passes 10,000 files, 20 MiB of retained patches, a single line over 1 MiB, or a fetch that takes longer than 10 seconds. Past those numbers the diff material for that artifact is not recoverable through that path, and the refusal is explicit rather than a quiet truncation.
+
+A second bound is easier to miss because it only applies to added and deleted files. Expanding context adds 20 lines at a time, and expansion becomes unavailable once the available content passes 200,000 characters. You still get the diff hunks for those files. What you lose is the surrounding unchanged lines, which on a large generated file is often where a mistake becomes legible. Modified files are exempt from that limit as long as both the old and the current content can be loaded.
+
+Nothing above is a claim about a model or a context window. These are artifact assembly limits, so a change that crosses one produces a differently shaped reading surface. The reviewer still runs. The artifact you are reading is not the same one.
+
+## The effort level is the price of a bigger diff
+
+GitHub documents [Copilot code review](https://docs.github.com/en/copilot/concepts/agent-capabilities/agent-powered-workflows-and-operations/code-review) as three effort levels with estimated AI credit consumption per review. Lite runs $0.05 to $1, averaging $0.25. Balanced runs $0.25 to $5, averaging $1.50. Max runs $1.50 to $25, averaging $10. The same page states that consumption generally increases with pull request size and with repository custom instructions, and that the estimates exclude GitHub Actions minutes.
+
+Those minutes are a separate line because the agentic capabilities execute on runners: full project context gathering, and passing suggestions to the cloud agent. Standard GitHub-hosted runners are the default, larger runners bill at a higher per-minute rate, and self-hosted runners do not consume Actions minutes. If Actions is unavailable or a workflow fails, the review still generates without the agentic capabilities. A large pull request reviewed during an Actions incident gets the reduced path, and nothing in the review comment itself announces that it did.
+
+The cost model is where size stops being only a reading problem. On Copilot, a bigger diff is paid for, and the price of looking closely is the effort level you set. That connects to the [review throughput ceiling that pricing pages leave out](/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/), where the per-review price is only one of the limits a team runs into.
+
+## Where the finding stops being posted
+
+Kodus draws its bound at the output instead of the input. Every suggestion carries a severity and only those at or above the level you pick get posted, with Medium as the default. Kody still finds the lower-severity issues, it just does not comment on them. A separate toggle decides whether the threshold applies to Kody Rules, and it is off by default, so a rule your team wrote is reported whatever severity it lands on. The vendor's own [noise guide](https://docs.kodus.io/en/knowledge_base/how-to-reduce-code-review-noise.md) notes that noise on a big pull request is usually a severity problem rather than a volume problem. That is the same layer question covered in [which layer each reviewer turns down](/blog/reduce-review-noise-which-layer-each-reviewer-turns-down/), applied to size.
+
+Kodus also bounds the input. Its [troubleshooting page](https://docs.kodus.io/en/how_to_use/code_review/troubleshooting.md) states that Kody reviews pull requests with up to 2,000 reviewable files after ignored-file patterns are applied, with the worked example of a 2,500-file pull request where 600 are `.lock` files and the remaining 1,900 are reviewed. A pull request past the configured file limit is skipped rather than partly reviewed. The severity default and the rule-bypass toggle live in [the severity threshold settings](https://docs.kodus.io/en/how_to_use/code_review/configs/suggestion_control.md).
+
+## Where each documented bound sits
+
+| | CodeRabbit (Change Stack) | GitHub Copilot code review | Kodus |
+| - | - | - | - |
+| What the bound limits | Diff assembly for the reading artifact | Cost and effort per review | Which findings get posted, and which files are read |
+| Documented limit | Compare API at 300 files; raw diff refused past 10,000 files, 20 MiB retained patches, 1 MiB per line, or a 10s fetch | Effort levels Lite/Balanced/Max, consumption rising with PR size | Minimum severity, default Medium; up to 2,000 reviewable files after ignored patterns |
+| Behavior past the bound | Diff refused, not silently truncated | Review still generated, less context, lower effort | Findings below the level are still detected, not commented; PR past the file limit is skipped |
+| Second bound | Context expansion unavailable past 200,000 characters on added/deleted files | Agentic capabilities need Actions; reduced review if unavailable | Threshold can apply to Kody Rules (off by default) |
+| Where it is documented | change-stack/provider-support | copilot concepts, code review | troubleshooting and suggestion_control |
+
+## What to check on your own pipeline
+
+The useful move is to find out which bound your review path hits first, and whether it fails loudly. Two questions cover most of it. Which of these limits does a large change reach first in your setup, and when it is reached, does anything in the pull request tell the reviewer that the reading surface changed?
+
+A refused diff and a silent severity filter both end with a comment on the pull request, and neither is visible in a green check. The difference is whether a human was told the coverage changed. Change Stack refuses rather than truncating, which at least leaves a signal at the artifact. A severity threshold never announces itself, so the missing comments look like the absence of findings. That gap is the same one that makes [a merge gate pass when the review never ran](/blog/what-your-merge-gate-sees-when-the-ai-review-never-ran/), and size is one of the ways a review quietly does less than the check suggests.
+
+## Splitting the change against the number
+
+Splitting the change is still the only reliable fix, and it is worth doing against the specific number rather than a feeling about diff size. A branch that stays under 300 files keeps the compare path on GitHub. A branch whose added files stay under 200,000 characters keeps context expansion available. On Kodus, ignored-file patterns are what bring a large pull request back under the 2,000-file limit, so the ignore list is a review-coverage setting and not only a noise setting. If you require an AI approval on the merge, [which approvals actually satisfy that requirement](/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) is worth reading next to these limits, because the check and the coverage are separate things.
+
+Those thresholds come from each vendor's documentation and may not match your configuration. The habit worth keeping is that every bound here is published, so it can be checked instead of guessed. Prices and platform support on these pages move monthly, and the figures above reflect the vendor documentation as of 2026-11-04.
