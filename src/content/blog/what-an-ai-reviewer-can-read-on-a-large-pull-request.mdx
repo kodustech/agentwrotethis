@@ -1,14 +1,25 @@
 ---
-title: "What an AI reviewer can read on a large pull request"
-description: "CodeRabbit, GitHub Copilot and Kodus each document a different limit on a large pull request. The numbers, and what you get past them."
-pubDate: 2026-11-04
+title: "Large vs complex pull requests: which review limit binds"
+description: "Size and evidence scope are different review limits. CodeRabbit, GitHub Copilot and Kodus document the first; a 2026 benchmark measures the second."
+pubDate: 2026-11-06
 category: "comparison"
 tags: ["aicodereview", "codereview", "pullrequests", "agenticcoding"]
+faq:
+  - q: "What makes a pull request complex rather than just large?"
+    a: "Size is how much there is to read; complexity is whether the thing that will break is inside the diff at all. A 2,500-file lockfile regeneration is large and simple. A 20-line change to a shared error code that a service in another repository matches on is small and complex, and a reviewer that only sees the repository under review cannot catch it."
+  - q: "How do I tell whether an AI review covered the whole pull request?"
+    a: "On size, check the tool's own status signal rather than the green check. CodeRabbit's status check lists Skipped, which includes too many files to review, and Rate limited as states that count as passing for a required check while no review happened. A cancelled review does not pass. On Copilot, a review that runs while GitHub Actions is unavailable still generates, without full project context gathering, and the comment does not announce the reduced path."
+  - q: "Does cross-repository review run on every pull request?"
+    a: "No, and the documentation is explicit about it. Kodus arms the cross-repo pass with a deterministic check over the added lines, and enables it only when it finds boundary surface such as string literals, exported symbols, enum or interface members, payload field keys, error-code-like identifiers, or contract-shaped paths. An internal refactor typically hits none of those and runs as a single-repo review."
+  - q: "Did the benchmark measure reviewer time saved?"
+    a: "No. MalPR-Bench scores whether a reviewer blocked a malicious pull request, identified the target vulnerability, and cited the repository evidence that establishes it. It reports no figure for human hours, so time saved stays unknown."
 ---
 
-Every reviewer that documents a limit on how large a pull request it will read draws that line somewhere different, and where the line sits changes what comes back more than the model behind it does. CodeRabbit publishes hard numbers for the point where it stops assembling a diff. GitHub publishes a price range per review that grows with the size of the change. Kodus caps the number of reviewable files it will take on and filters findings by severity before posting any of them. A large change can come back incomplete from all three, and the shape of the incompleteness differs each time.
+Two different limits decide what an AI reviewer actually read on the change you are about to approve, and only one of them usually has a number next to it. The first is size: how many files, bytes and lines the tool will assemble into a reviewable diff. The second is scope: how far outside that diff the reviewer will travel to find the evidence a finding depends on. A 2,500-file lockfile regeneration is large and simple. A 20-line change to an error code that a service in another repository matches on is small and complex.
 
-The numbers below are all from the vendors' own pages, linked where each one appears.
+CodeRabbit publishes hard numbers for the point where it stops assembling a diff. GitHub prices a review by size through its effort levels. Kodus bounds which findings get posted and how many files it will read. A large change can come back incomplete from all three, and the shape of the incompleteness differs each time. Every figure below comes from the vendor's own documentation, linked where it appears, or from a benchmark that publishes its method.
+
+The volume this runs against is not hypothetical. The [MalPR-Bench paper](https://arxiv.org/abs/2608.25730) cites GitHub's own reporting that monthly commit volume more than doubled from 1.4 billion to 2.9 billion between April and August 2026, with merged pull request volume approaching 130 million a month. That is the queue this reading surface sits in front of.
 
 ## Why the reading surface is the thing that breaks first
 
@@ -30,11 +41,11 @@ GitHub documents [Copilot code review](https://docs.github.com/en/copilot/concep
 
 Those minutes are a separate line because the agentic capabilities execute on runners: full project context gathering, and passing suggestions to the cloud agent. Standard GitHub-hosted runners are the default, larger runners bill at a higher per-minute rate, and self-hosted runners do not consume Actions minutes. If Actions is unavailable or a workflow fails, the review still generates without the agentic capabilities. A large pull request reviewed during an Actions incident gets the reduced path, and nothing in the review comment itself announces that it did.
 
-The cost model is where size stops being only a reading problem. On Copilot, a bigger diff is paid for, and the price of looking closely is the effort level you set. That connects to the [review throughput ceiling that pricing pages leave out](/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/), where the per-review price is only one of the limits a team runs into.
+The cost model is where size stops being only a reading problem. On Copilot, a bigger diff is paid for, and the price of looking closely is the effort level you set. That connects to the [review throughput ceiling that pricing pages leave out](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/), where the per-review price is only one of the limits a team runs into.
 
 ## Where the finding stops being posted
 
-Kodus draws its bound at the output instead of the input. Every suggestion carries a severity and only those at or above the level you pick get posted, with Medium as the default. Kody still finds the lower-severity issues, it just does not comment on them. A separate toggle decides whether the threshold applies to Kody Rules, and it is off by default, so a rule your team wrote is reported whatever severity it lands on. The vendor's own [noise guide](https://docs.kodus.io/en/knowledge_base/how-to-reduce-code-review-noise.md) notes that noise on a big pull request is usually a severity problem rather than a volume problem. That is the same layer question covered in [which layer each reviewer turns down](/blog/reduce-review-noise-which-layer-each-reviewer-turns-down/), applied to size.
+Kodus draws its bound at the output instead of the input. Every suggestion carries a severity and only those at or above the level you pick get posted, with Medium as the default. Kody still finds the lower-severity issues, it just does not comment on them. A separate toggle decides whether the threshold applies to Kody Rules, and it is off by default, so a rule your team wrote is reported whatever severity it lands on. The vendor's own [noise guide](https://docs.kodus.io/en/knowledge_base/how-to-reduce-code-review-noise.md) notes that noise on a big pull request is usually a severity problem rather than a volume problem. That is the same layer question covered in [which layer each reviewer turns down](https://agentwrotethis.dev/blog/reduce-review-noise-which-layer-each-reviewer-turns-down/), applied to size.
 
 Kodus also bounds the input. Its [troubleshooting page](https://docs.kodus.io/en/how_to_use/code_review/troubleshooting.md) states that Kody reviews pull requests with up to 2,000 reviewable files after ignored-file patterns are applied, with the worked example of a 2,500-file pull request where 600 are `.lock` files and the remaining 1,900 are reviewed. A pull request past the configured file limit is skipped rather than partly reviewed. The severity default and the rule-bypass toggle live in [the severity threshold settings](https://docs.kodus.io/en/how_to_use/code_review/configs/suggestion_control.md).
 
@@ -48,14 +59,39 @@ Kodus also bounds the input. Its [troubleshooting page](https://docs.kodus.io/en
 | Second bound | Context expansion unavailable past 200,000 characters on added/deleted files | Agentic capabilities need Actions; reduced review if unavailable | Threshold can apply to Kody Rules (off by default) |
 | Where it is documented | change-stack/provider-support | copilot concepts, code review | troubleshooting and suggestion_control |
 
+## Where the evidence the review needs actually lives
+
+A size bound and a context bound are different limits, and only one of them usually has a number next to it. A reviewer that reads the changed files and nothing else will still produce a finding on a small pull request whose justification lives two files away. That failure does not scale with the size of the change, which is why a documented file ceiling tells you very little about whether the review was sound.
+
+MalPR-Bench measures this directly. The benchmark holds 89 malicious pull requests and 50 benign controls across 44 repositories and eight language families. Each malicious case carries a rubric frozen before any reviewer ran, naming the target vulnerability, the mechanism descriptions that count as a correct diagnosis, and the repository evidence required to establish it. Reviews are then scored on three things separately: whether the change was blocked, whether the target vulnerability was identified, and whether the evidence was cited. A block only counts as attributable when all three hold.
+
+That separation is the paper's point. A block can be triggered by an unrelated issue, so fixing what was reported can leave the actual defect exploitable. The authors call this the Verdict-Diagnosis gap, and it is the reason a detection rate and a review rate are not the same measurement.
+
+The taxonomy is the part worth stealing. Let C be the changed lines and T the set of files the pull request touches:
+
+- L0: the finding can be justified from the changed lines alone.
+- L1: it also needs unchanged code in another file the pull request touched.
+- L2a: it needs code outside the touched set, connected by a call or an import.
+- L2b: it needs code outside the touched set, connected only by semantic correspondence, such as a sibling endpoint or an equivalent handler.
+
+On 31 held-out malicious pull requests, an attributable reviewer and a widely deployed commercial reviewer blocked nearly the same number of changes, 22/31 against 24/31. They did not diagnose the same number. The attributable reviewer identified 22 target vulnerabilities against 16, a 1.38x difference, and the split lands almost entirely on evidence location: the commercial reviewer identified 16 of 24 targets when the required evidence sat in the changed lines or another touched file, and 0 of 7 when it did not. On absence-type cases, where a required guard or ownership check is missing, both blocked 9 of 14, and the attributable reviewer identified 9 targets against 3.
+
+Two caveats belong with those numbers. MalPR-Bench is a preprint, not peer reviewed, and the commercial baseline is black box: its model, inference configuration and intermediate reasoning are not disclosed, so the results describe end-to-end product output rather than a design choice. It is one configuration, not a sweep.
+
+Kodus documents the L2a case from the other end. Its [Business Logic Validation](https://docs.kodus.io/en/how_to_use/code_review/business_logic_validation.md) page states that when a rule lives in code the pull request calls but did not change, such as a validator, a helper or the mapper that builds a response, Kody reads it in the repository at the pull request's head before anything is shown, and does the same for every MISSING, PARTIAL and CHECK MANUALLY row. A row turns MET only on a file and line Kody read. A row turns MISSING only when Kody read the code the pull request relies on and can cite the line that lacks the rule. That is a documented answer to the L2a question, and it is the kind of statement to look for rather than a percentage.
+
 ## What to check on your own pipeline
 
-The useful move is to find out which bound your review path hits first, and whether it fails loudly. Two questions cover most of it. Which of these limits does a large change reach first in your setup, and when it is reached, does anything in the pull request tell the reviewer that the reading surface changed?
+The useful move is to find out which bound your review path hits first, and whether it fails loudly. Two checks cover most of it. Take a recent large change and confirm which of the documented limits it reached before a human read it. Then confirm whether anything in the pull request told the reviewer that the reading surface changed.
 
-A refused diff and a silent severity filter both end with a comment on the pull request, and neither is visible in a green check. The difference is whether a human was told the coverage changed. Change Stack refuses rather than truncating, which at least leaves a signal at the artifact. A severity threshold never announces itself, so the missing comments look like the absence of findings. That gap is the same one that makes [a merge gate pass when the review never ran](/blog/what-your-merge-gate-sees-when-the-ai-review-never-ran/), and size is one of the ways a review quietly does less than the check suggests.
+A refused diff and a silent severity filter both end with a comment on the pull request, and neither is visible in a green check. The difference is whether a human was told the coverage changed. Change Stack refuses rather than truncating, which at least leaves a signal at the artifact. A severity threshold never announces itself, because the findings it drops were never posted.
 
-## Splitting the change against the number
+The second check is the one that catches the changes that matter. Sort the last twenty pull requests your reviewers sent back by where the reviewer had to look to justify the objection: the changed lines, another touched file, a file reached by a call or an import, or a file with no structural link at all. That last group is where a diff-only reviewer is guessing, and it is the group worth spending a linking setting on. A small pull request can sit in that group, which is the same reason a cross-repository change is a context problem rather than a [volume problem](https://agentwrotethis.dev/blog/multi-repo-ai-review-a-context-problem-not-a-volume-problem/).
 
-Splitting the change is still the only reliable fix, and it is worth doing against the specific number rather than a feeling about diff size. A branch that stays under 300 files keeps the compare path on GitHub. A branch whose added files stay under 200,000 characters keeps context expansion available. On Kodus, ignored-file patterns are what bring a large pull request back under the 2,000-file limit, so the ignore list is a review-coverage setting and not only a noise setting. If you require an AI approval on the merge, [which approvals actually satisfy that requirement](/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) is worth reading next to these limits, because the check and the coverage are separate things.
+One more setting is worth reading before the next large agent change lands. The coding-agent instruction files your team already writes for agents are read on the review side too, with a documented cap of 8 files and 64 KB per review and a longer file cut rather than skipped. Which files get read, and whether the review says so, is compared in [which of your rule files the reviewer actually reads](https://agentwrotethis.dev/blog/which-of-your-rule-files-the-reviewer-actually-reads/).
 
-Those thresholds come from each vendor's documentation and may not match your configuration. The habit worth keeping is that every bound here is published, so it can be checked instead of guessed. Prices and platform support on these pages move monthly, and the figures above reflect the vendor documentation as of 2026-11-04.
+None of this argues against buying a hosted reviewer. The kernel-scale projects can afford a falsification stage because the domain is narrow and the ground truth exists in git history. A general review tool runs on every pull request, in whatever language, on a repository it did not train on, and has to produce a comment a human can act on within minutes. What a buyer can still ask for is the method behind any number on the page, and a plain statement of where the tool stops. GitHub documents its effort levels, the estimated credit consumption per review, and the fallback when the agentic path cannot run. That is the standard to hold the rest to.
+
+The distinction to carry into the next evaluation is between the two limits. Asking how large a diff a reviewer accepts is easy to answer and rarely binds in practice. Asking how far outside the diff it will read to justify a finding is harder to answer, and it binds on exactly the changes where a wrong approval is expensive. A pull request can be small and still need evidence from outside the touched files. A large one can be entirely readable from the diff. Size is a number you can compare across tools today; evidence scope is the one that predicts whether the review was real.
+
+Claims checked 2026-11-09.
