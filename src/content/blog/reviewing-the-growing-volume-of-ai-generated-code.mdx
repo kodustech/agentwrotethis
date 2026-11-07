@@ -1,0 +1,70 @@
+---
+title: "Reviewing the growing volume of AI-generated code"
+description: "At volume, review stops scaling with reading speed. The input that makes it scale is the requirement a change claims to satisfy, and the rule for who may close a gap when the two do not match."
+pubDate: 2026-11-07
+category: "guide"
+tags: ["aicodereview", "codereview", "aiagents", "pullrequests"]
+faq:
+  - q: "How do you review a large volume of AI-generated code without adding reviewers?"
+    a: "Change what each review is checked against. When changes are numerous and small, reading each diff closely does not scale, but checking each change against the requirement it claims to satisfy does, because the requirement is a fixed reference and the gap between it and the code is a finite list. CodeRabbit does this through linked issues, and Kodus does it through Business Logic Validation against a task read from a connected tracker. GitHub Copilot code review does not take a task as input, so from its published documentation the requirement check is unknown."
+  - q: "Does an AI reviewer know what a pull request was supposed to do?"
+    a: "Only if the tool takes the requirement as an input. CodeRabbit reads linked issues from the pull request text (fixes #123, closes #123) or, on Azure DevOps, native linked work items, and reports each as addressed, not addressed, or unclear. Kodus finds the task by its id in the pull request title, branch name, or description, reads it from the tracker, and reports each requirement as MET, PARTIAL, MISSING, CHECK MANUALLY, or NOT IN TASK. Copilot's documentation does not describe a requirement input, so the answer there is unknown."
+  - q: "Can a developer accept their own missing requirement?"
+    a: "In Kodus, no. A gap can be marked ACCEPTED only by someone other than the pull request's author who has write access on GitHub, Developer or above on GitLab, or is a member of the organization on Bitbucket, Azure Repos, and Forgejo. The acceptance persists on later re-checks while the task text is unchanged. CodeRabbit's linked-issue assessment reports a state but does not document a per-requirement closure, and Copilot does not document one."
+---
+
+Two things break at once when agents write most of the code. The number of changes goes up, and each change gets smaller, so the total surface a team has to judge grows while any single diff looks less worth a slow read. The reflex is to make review faster. That does not scale, because the work that grows is not reading speed, it is the count of decisions about whether a change is correct.
+
+The number that decides whether a team keeps up is not lines of code. It is how many changes a person has to judge. LinearB's [2026 software engineering benchmarks](https://linearb.io/library/ai-in-software-development), drawn from more than 8.1 million pull requests, put agentic pull requests at a median of 89 lines and 293 lines at the 75th percentile, against 157 lines for unassisted work at the same percentile. They also wait: 17.6 hours at the 75th percentile before review starts, against 3.4 hours for unassisted changes. Smaller and more numerous is the harder shape to review, and it is the shape the volume question is really about.
+
+There is a ceiling on how far the tooling side can be stretched before it starts metering the very activity that created the volume, which is what [the per-developer refill rates and file caps on the pricing pages](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) describe. Adding reviewers and raising limits treats the symptom. The part of review that actually has to change is what each review is checked against.
+
+## Why more volume does not yield to faster reading
+
+A reviewer reading a diff answers one question: does this code look right. That question scales badly, because it is answered from scratch on every change and its cost is proportional to the size of the change. At 89 lines it is cheap. At 293 lines, multiplied across a week of agent output, it is the bottleneck, and it is the reason a queue needs a ranker at all, since [what a ranker can and cannot see](https://agentwrotethis.dev/blog/what-your-review-queues-ranker-can-and-cannot-see/) is a separate problem from how many changes arrive.
+
+A reviewer checking a change against its requirement answers a different question: does this code do what it was asked to do. That question has a fixed reference point, so the answer is a finite list of items marked as delivered or not, and it does not grow with the size of the diff. It grows with the number of requirements, which the task already fixes. For a stream of small agent changes, that is the difference between judging each diff on its own merits and closing out a checklist.
+
+The catch is that the requirement has to reach the reviewer. If the tool never sees the task, it can only tell you about the diff, and you are back to reading.
+
+## Three ways the requirement reaches a review
+
+Every reviewer that supports this takes the requirement from one of a few places, and the choice decides how much of the mechanism works.
+
+The first is the pull request text. CodeRabbit's [linked issue validation](https://docs.coderabbit.ai/issues/pr-validation.md) looks for references in the description using platform syntax such as `fixes #123` or `closes #123` on GitHub, and full tracker URLs for Jira and Linear. On Azure DevOps it also reads work items attached through the platform's native Development interface, and it will use up to 200 valid linked work items, dropping deleted or permission-restricted ones without discarding the rest. The assessment is one of three states: addressed, not addressed, or unclear. Comments and discussion threads on the issue are not analyzed, so anything decided in a thread is invisible to the check.
+
+The second is the tracker, read by id. Kodus's [Business Logic Validation](https://docs.kodus.io/en/how_to_use/code_review/business_logic_validation.md) finds the task in the pull request title, branch name, or description, in that order, and reads it from a connected tracker such as Linear, Jira, Notion, or Git Issues. A reference only counts once the tracker returns a task with that exact id, which is what stops a title containing `UTF-8` or `gpt-5` from being read as a ticket. It checks up to three tasks per pull request, follows a parent task and sub-tasks, and reports each requirement as MET, PARTIAL, MISSING, CHECK MANUALLY, or NOT IN TASK, with the file and line each row is based on. Without a tracker, the task text can be pasted into the command instead.
+
+The third is no requirement at all. GitHub Copilot code review reviews the diff against the repository's custom instructions and a review effort level, and its [configuration documentation](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review) describes no input that carries what the change was asked to do. The concept page for [Copilot code review](https://docs.github.com/en/copilot/concepts/agent-capabilities/agent-powered-workflows-and-operations/code-review) does not describe one either, so from what GitHub publishes, whether Copilot checks a change against its task is unknown. That is a statement about the documentation, not about the product's internals.
+
+## Who is allowed to close a gap
+
+A requirement check produces a list of gaps. The next question is what a gap costs, and that is a policy decision the vendor either implements or leaves to you.
+
+CodeRabbit's linked-issue assessment reports a state and does not document a per-requirement closure, so a reviewer who disagrees with a finding has the comment thread and the label mechanism, and Slop Detection in particular does not block a merge: when a pull request is classified as slop, a warning is added to the walkthrough comment and, on some platforms, a label, which maintainers triage at their discretion. Kodus implements closure explicitly. A gap can be marked ACCEPTED by someone other than the pull request's author, with the required permission depending on the platform, and the acceptance persists on later re-checks as long as the task's text is unchanged. Once the task is edited, the requirement has to be accepted again. The [review policy documentation](https://docs.kodus.io/en/how_to_use/code_review/policy.md) is clear that Kody does not replace human judgment, and the comment is a signal rather than a status check, so it never blocks a merge by itself.
+
+That distinction matters more than it looks. If the author can accept their own gap, the check is advisory and the first time a change is close to shipping, the gap gets accepted to clear the list. Requiring a second person turns the same mechanism into a decision that leaves a record of who made it, which is the same question that governs [whose approval satisfies a merge requirement](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) and what happens when [an agent's fix commit lands after an approval](https://agentwrotethis.dev/blog/what-an-agents-fix-commit-does-to-the-approval-you-already-gave/).
+
+## The tools side by side
+
+| Reviewer | How the requirement reaches review | States reported | Who may close a gap |
+| - | - | - | - |
+| CodeRabbit | Linked issues in the PR description (`fixes #123`, `closes #123`, tracker URLs); native linked work items on Azure DevOps; up to 200 work items | Addressed, Not addressed, Unclear | No documented per-requirement closure; Slop Detection labels and warns without blocking |
+| GitHub Copilot code review | No requirement input described in its docs; reviews the diff against repository custom instructions and a review effort level | Unknown from its published documentation | Unknown from its published documentation |
+| Kodus | Task found by id in PR title, branch, or description and read from a connected tracker; up to three tasks per PR; task text can be pasted directly | MET, PARTIAL, MISSING, CHECK MANUALLY, NOT IN TASK, each citing file and line | ACCEPTED by a reviewer other than the PR author (write access on GitHub, Developer or above on GitLab, org member on Bitbucket, Azure Repos, Forgejo); persists while the task text is unchanged |
+
+Two more properties decide how the check behaves in practice. CodeRabbit re-checks a labeled pull request on subsequent reviews, so the same finding can reappear and is cleared when a completed analysis finds nothing. Kodus re-checks on the first review and then only on a comment or a forced review by default, with an option to re-check on each push while something is missing, and each re-check is another validation. That cadence is the cost side of the mechanism, and it is the thing to set deliberately rather than leave on the default.
+
+## What to do before you turn this on
+
+Four things are worth checking, in order, because each one decides whether the next one does anything.
+
+Confirm the reviewer takes a requirement as input at all. A tool that only reads the diff can only report on the diff, however good its model is, and no amount of prompt tuning changes that.
+
+Count how many of your pull requests name a task. The mechanism binds to a reference the tracker can resolve, so a repository whose titles and branches carry no ticket keys gives it nothing to work with, and the check silently does nothing useful.
+
+Decide who may close a gap before you enable re-checks. If the author can accept their own gap, expect the list to clear itself under shipping pressure, and treat the check as a prompt rather than a gate.
+
+Set the re-check cadence against your volume, not the default. Re-checking on every push while a requirement is missing is one validation per push, which is the same arithmetic that makes incremental review on each push expensive in the first place.
+
+None of this removes the need to read code. It changes which part of review grows with volume and which part stays fixed, and that is the part worth engineering when agents are writing most of the changes.
