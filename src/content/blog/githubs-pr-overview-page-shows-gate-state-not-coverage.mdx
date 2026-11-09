@@ -1,0 +1,70 @@
+---
+title: "GitHub's PR overview page shows gate state, not coverage"
+description: "GitHub's new pull request overview puts merge readiness first. What a compact readiness summary can assert when bots write and approve the code."
+pubDate: 2026-11-09
+category: "explainer"
+tags: ["codereview", "aicodereview", "github", "pullrequests"]
+faq:
+  - q: "What is the new GitHub pull request overview page?"
+    a: "An opt-in public preview introduced on 5 November 2026 that moves the merge box to the top of the pull request and rebuilds it to show the same information in less than half the space, with comment filters for All, Unresolved and Mine. The classic overview stays available from the same menu."
+  - q: "Why can a pull request show green when no review ran?"
+    a: "GitHub's status checks reference states that a skipped job reports its status as success and will not block a merge even when it is a required check. A review skipped for a path filter, size limit or author exemption therefore reports the same green as a review that read the diff."
+  - q: "Can an AI reviewer's approval satisfy a branch protection rule?"
+    a: "It depends on the repository setting rather than the reviewer. Copilot code review defaults to a Comment review that does not count toward required approvals, and CodeRabbit's request-changes workflow ships disabled. Kodus documents auto-approve as optional and cannot be a required check at all because it reports status as reactions rather than a check."
+---
+
+GitHub began rolling out an opt-in Overview page for pull requests on 5 November 2026, and the design decision behind it is worth reading closely. The page moves the merge box to the top and rebuilds it to carry the same information in less than half the space, so the first thing you see on a pull request is whether it can merge and what to do next. On a repository where agents open most of the pull requests, that summary is accurate about the gate and silent about whether anyone read the change.
+
+The [changelog](https://github.blog/changelog/2026-11-05-new-pull-request-overview-page-in-public-preview/) states the goal plainly: finding what is blocking progress and working out what to do next, because time spent scrolling adds up as people review more pull requests. That is a fair description of the problem. The question worth asking is what a compact readiness summary can assert, and which of its assertions change meaning once the author is a bot and the approver is one too.
+
+## What the overview page compresses
+
+Three things move to the top of the page. A compact view of checks, comments and approvals keeps the supporting signals nearby. The actions available to move the pull request forward sit next to it, and updating your branch is the example GitHub gives. Merge readiness and the merge control come last, in the same panel.
+
+The second part of the preview is aimed at the conversation rather than the gate. Comments can be filtered to All, Unresolved or Mine, sorted newest first, and a summary in the upper right shows recent review comments and review requests, with controls to mark a draft ready for review or close the pull request. GitHub describes the preview as a starting point and collects feedback in the [pinned community discussion](https://github.com/orgs/community/discussions/212186), and the classic overview stays available from the same menu.
+
+Read the list of signals and notice what they have in common. Checks, approvals and merge conflicts are all machine-computed states. They are the right things to compress, because they are cheap to read and unambiguous when they are correct. The ambiguity sits one layer down, in how each state got there.
+
+## A skipped job reports success
+
+GitHub's own [status checks reference](https://docs.github.com/api/article/body?pathname=/en/pull-requests/reference/status-checks) says it outright: a job that is skipped reports its status as success and will not prevent a pull request from merging, even if it is a required check. That is how required checks work rather than a quirk of one reviewer, and it means the readiness summary can show a green from a check whose work never happened.
+
+For a human-written pull request that rarely matters, because the human skipped it and knows why. On an agent-heavy repository it matters more. A review job skipped for a path filter, a size limit, a draft state or an author exemption reports the same green as a review job that read the diff. The summary at the top of the page does not distinguish them, and that summary is now the first thing a reviewer reads, above the diff and above the conversation where the reason is written down.
+
+This is the same failure mode I looked at across providers in [what a merge gate sees when the AI review never ran](https://agentwrotethis.dev/blog/what-your-merge-gate-sees-when-the-ai-review-never-ran/), where CodeRabbit documents that its Skipped and Rate limited states both count as passing for a required check. GitHub's documentation says the equivalent thing about any skipped job. Putting the result at the top of the page makes it more legible without making it more informative.
+
+## The action the summary offers can discard the approvals it counts
+
+There is a sharper interaction between two documented behaviours. The overview page lists updating your branch as an action to take when something is blocking. Separately, GitHub's [branch protection documentation](https://docs.github.com/api/article/body?pathname=/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) says that with stale approval dismissal enabled, an approving review is dismissed when the diff changes, and it names clicking Update branch as one of the ways the diff changes.
+
+So the readiness summary can present two true statements in sequence. The approval count is met, and here is the button to bring the branch up to date. Pressing it can reset the first one, and a follow-up push from an agent does the same thing without anyone pressing anything. GitHub documents a narrower alternative on the same page: requiring that the most recent reviewable push be approved by someone other than the person who pushed it. That setting avoids dismissing every stale approval on a long-running pull request, which is exactly the shape agents produce when a follow-up commit lands after the approval.
+
+None of this is a defect in the overview page. It is what happens when a summary of gate state is presented as the answer to whether a change can merge, because gate state is a snapshot and the actions in the same panel are what move it.
+
+## What each reviewer's state looks like in that panel
+
+The summary reads whatever your checks and reviews report, so the useful question is what each tool posts and whether that artifact has a state which passes without work.
+
+| Tool | What it posts | Distinct state for "did not run" | Approval default |
+| - | - | - | - |
+| GitHub Copilot code review | A review with High, Medium or Low severity labels on each comment | Not documented as a separate check state | Comment review, which does not count toward required approvals until the repository enables approving reviews and counting them |
+| CodeRabbit | A check run on GitHub when review progress is on, a commit status otherwise | Yes on GitHub, Skipped and Neutral; GitLab, Azure DevOps and Bitbucket have no skipped or neutral state | Request-changes workflow off by default |
+| Kodus | Emoji reactions on the pull request, with the status posted as a comment where reactions are unavailable | No check to require, so nothing to pass; the skipped state is a reaction | Non-blocking by default, auto-approve optional |
+
+Copilot's [usage documentation](https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review) states that its reviews default to a Comment review and do not count toward required approvals, and that approving reviews are off until a repository enables them and lets them count. There is a second detail worth knowing on a bot-authored pull request: when Copilot re-reviews, it may repeat comments you already resolved or downvoted. The unresolved filter on the new page will surface those again, which is honest, and it also means an unresolved count is a count of open questions rather than a measure of what was read.
+
+Kodus goes the other way and gives up the check entirely. Its [review flow documentation](https://docs.kodus.io/en/how_to_use/code_review/flow.md) reports status as reactions, a rocket while working and a party emoji on completion, with eyes for a skipped run and a thumbs-down when the author has no license. Native reactions work on GitHub, GitLab and Forgejo, and on Azure DevOps and Bitbucket the status arrives as a comment instead. The consequence is that a Kodus review cannot be a required check, so it never contributes a green to the readiness summary, and it also cannot contribute a false one. Its [review policy](https://docs.kodus.io/en/how_to_use/code_review/policy.md) starts from non-blocking suggestions and recommends turning on blocking behaviour only after the team has agreed thresholds and has CI it trusts.
+
+Those are different trades rather than better and worse. If you want the reviewer inside the merge gate, Copilot and CodeRabbit can be there and Kodus cannot. If you want a review that cannot be mistaken for a gate, Kodus is the one of the three that is structurally unable to be one. The [approval toggles and path globs](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) that decide whether a bot approval clears branch protection are a separate setting from anything the summary shows.
+
+## What to add to your gate
+
+The readiness summary is a gate-state view. Treating it as a coverage view is the mistake, and it is cheap to correct.
+
+List your required checks and, for each one, ask whether it has a passing state that requires no work to reach. If it does, the summary can be green over an unread change, and no amount of compactness at the top of the page will tell you. Any check that fits that description needs a companion assertion.
+
+Make coverage its own check. Instead of trusting the reviewer's check to mean the reviewer ran, add a check that fails when the review artifact is absent from the pull request. Presence is the thing to assert, because a skipped job reports success, so a pass or fail signal from the reviewer's own check cannot answer the question. A coverage check that reads the artifact directly can.
+
+Decide the stale approval question on purpose. The Update branch action sits next to the approval count, so whether updating the branch should clear the approvals is a decision you want made in the repository settings rather than discovered during a merge. The last-reviewable-push option is the narrower setting for long-running pull requests.
+
+Read the unresolved count as a question count. It tells you how much conversation is still open, which is useful, and it says nothing about how much of the diff a machine or a person actually examined. That distinction is the one the compact panel cannot carry, and on a repository where agents write most of the code, it is the one worth keeping in a separate check.
