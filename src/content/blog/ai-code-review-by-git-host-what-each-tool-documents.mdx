@@ -1,0 +1,82 @@
+---
+title: "AI code review by Git host: what each tool documents"
+description: "CodeRabbit, Copilot, Greptile, Qodo and Kodus all document different Git hosts, and behave differently on each one. The provider matrix, with sources."
+pubDate: 2026-11-11
+category: "comparison"
+tags: ["aicodereview", "github", "gitlab", "bitbucket"]
+faq:
+  - q: "Can I use GitHub Copilot code review on GitLab or Bitbucket?"
+    a: "No. GitHub's own availability list names GitHub.com, GitHub CLI, GitHub Mobile, VS Code, Visual Studio, Xcode, JetBrains IDEs and Azure DevOps in public preview. GitLab and Bitbucket are not on it."
+  - q: "Does an AI reviewer's check block a merge on every host?"
+    a: "It can be required on GitHub, GitLab, Azure DevOps and Bitbucket, but the semantics differ. On GitHub a skipped or rate-limited review has its own state. On the other three hosts the commit status reports success for those reviews, so a required check alone cannot distinguish a completed review from one that never ran."
+  - q: "Why does the same AI review tool offer fewer actions on Bitbucket?"
+    a: "Because the provider's API is the limit, not the tool. Bitbucket has no anonymous artifact viewing, no file-level comments without a line anchor, and no committable suggestions in CodeRabbit's provider matrix, and Kodus documents that Bitbucket has no reaction API, so review status arrives as a comment instead."
+---
+
+The model behind an AI code reviewer is the last thing that decides whether your team can adopt it. The first is your Git host. Comparisons tend to rank review quality across tools and skip the provider path, which leaves a team on Bitbucket Data Center or Azure DevOps Server evaluating a shortlist where some tools cannot connect to their repositories at all, and others connect but cannot write anything back.
+
+The host list is only half of it. The tools that do support your host do not behave the same way on it, and that part lives in a provider-support page rather than anywhere near the pricing table. A reviewer that reads a diff on GitLab is not the same product as the one that reads a diff on GitHub, even when the marketing page uses one screenshot for both.
+
+## The host list is a hard filter, so check it first
+
+Five tools, five different host lists. Nothing about review quality matters until your host is on the list.
+
+| Tool | Hosts documented | Where the same tool behaves differently | Self-host path |
+| --- | --- | --- | --- |
+| CodeRabbit | GitHub.com, GitHub Enterprise Server, GitLab.com, GitLab self-managed, Bitbucket Cloud, Bitbucket Data Center, Azure DevOps, private-network hosts via a reverse tunnel | Azure DevOps artifacts are read-only; GitLab has no direct merge and drafts expire in 24 hours; Bitbucket refuses committable suggestions | Self-hosted CodeRabbit is an Enterprise option for customers with 500 or more seats |
+| GitHub Copilot code review | GitHub.com, GitHub CLI, GitHub Mobile, VS Code, Visual Studio, Xcode, JetBrains IDEs, Azure DevOps in public preview | No GitLab and no Bitbucket path; agentic capabilities run on GitHub Actions runners | Not applicable |
+| Greptile | GitHub Cloud, GitLab.com, Bitbucket Cloud, Cursor Origin in beta, all on every plan | GitHub Enterprise Server, GitLab self-managed, Bitbucket Data Center and Gitea are Enterprise-gated; Perforce is on-premises only | Greptile Enterprise by contact sales; hosting the code provider and hosting Greptile are separate choices |
+| Qodo | GitHub, GitLab, Bitbucket, Azure DevOps, Gerrit | Bitbucket Cloud and Azure DevOps Cloud have no on-premises option; air-gapped is available for GitLab self-managed, Bitbucket Data Center, Gerrit and GitHub Enterprise | Multi-tenant, single-tenant, on-premises and air-gapped, per host |
+| Kodus | GitHub, GitLab, Bitbucket, Azure Repos, Forgejo | Bitbucket, Azure Repos and Forgejo connect by token only; request-changes is unavailable when GitLab is the only connected host | Self-hosted Community, cloud Teams, or Enterprise self-hosted or cloud |
+
+Two things stand out from that table. Azure DevOps is where the smaller vendors are strongest and one large one is weakest: Qodo, Kodus and CodeRabbit all document Azure DevOps support, while Copilot code review is in public preview there. And Forgejo support, which only Kodus documents in this set, is community-maintained rather than vendor-maintained, which is a different kind of commitment.
+
+## The same tool degrades on the same provider
+
+CodeRabbit publishes the clearest example. Its [provider support page](https://docs.coderabbit.ai/change-stack/provider-support) reads as one feature with four levels of completeness. GitHub is the reference path: the only host with direct merge and merge-queue controls, the only one where a draft review lives natively in the provider, and the only one whose activity timeline is built from real provider events rather than synthesized review checkpoints.
+
+Everything after that is a subset. On GitLab, draft reviews are held by CodeRabbit, invisible in GitLab until submitted, and an unsubmitted draft expires after 24 hours. On Bitbucket, artifacts cannot be read anonymously even for a public repository, file-level comments need a line anchor to attach to, and committable suggestions are refused. On Azure DevOps the artifacts are read-only, so you can read the change, the findings and the graphs, but you cannot comment, submit a review, apply a suggestion, mark a pull request ready or merge from the tool.
+
+There is a second-order cost to the Azure DevOps path that is easy to miss: Azure artifacts do not receive the live freshness comparison the other hosts get, so an Azure snapshot cannot tell you the head has moved past what you are reading. Everywhere else, the tool at least tells you that you are about to act on stale material.
+
+Kodus documents a smaller version of the same pattern in its [code review flow](https://docs.kodus.io/en/how_to_use/code_review/flow). Native reactions work on GitHub, GitLab and Forgejo. Azure DevOps and Bitbucket have no reaction API, so the status emoji that tells you a review is running, finished or skipped arrives as a comment instead. You still get the state, in a different place. And its [general settings page](https://docs.kodus.io/en/how_to_use/code_review/configs/general) documents auto-approve on GitHub, GitLab, Bitbucket, Azure Repos and Forgejo, while the request-changes toggle is hidden when GitLab is the only connected platform. On a GitLab-only setup, Kody approves and comments without the ability to request changes. The tier question underneath that, since required approvals are a paid GitLab feature, is the subject of [what the GitLab tier decides](https://agentwrotethis.dev/blog/ai-code-review-on-gitlab-what-the-tier-decides/).
+
+## The status check is where host differences reach your merge gate
+
+If your branch protection requires the reviewer's check before merging, the check's semantics matter more than its color. CodeRabbit's [status check page](https://docs.coderabbit.ai/pr-reviews/status-check) is explicit that the same review is reported two different ways:
+
+| Provider | What the reviewer reports | States available |
+| --- | --- | --- |
+| GitHub and GitHub Enterprise Server, CodeRabbit Cloud | A check run when `reviews.review_progress` is true, the default, and a commit status when it is false | Pending, passed, skipped, rate limited, failed, cancelled, missing |
+| GitLab, Azure DevOps, Bitbucket, and self-hosted CodeRabbit | A commit status, which Bitbucket shows as a build status | No skipped or neutral state, so a skipped review and a rate-limited review both report success |
+
+That table is the whole reason a required check can be green without a review having happened. On GitHub the difference is visible, because a skipped review shows as Skipped and a rate-limited one shows as Neutral. On the other three hosts there is no such state to display, so the commit status reports success and the description carries the explanation. A merge gate built on the check alone cannot tell the two apart. I went through that failure mode, and the ordering that avoids it, in [what your merge gate sees when the review never ran](https://agentwrotethis.dev/blog/what-your-merge-gate-sees-when-the-ai-review-never-ran/).
+
+## Self-hosting is a separate purchase from the host you already run
+
+For teams on a self-managed host, the vendor's own deployment model becomes part of the host decision, and the vendors answer differently.
+
+Greptile draws the line by plan: GitHub Cloud, GitLab.com, Bitbucket Cloud and Cursor Origin are available on all plans, while GitHub Enterprise Server, GitHub Enterprise Cloud with data residency, GitLab self-managed, Bitbucket Data Center and Gitea require [Greptile Enterprise](https://www.greptile.com/docs/integrations/code-providers). Perforce through P4 Code Review is on-premises only. Qodo publishes a [deployment model per host](https://docs.qodo.ai/install-qodo/deployment-model-support), and the useful row is the one with a gap: Bitbucket Cloud and Azure DevOps Cloud support multi-tenant and single-tenant, but not on-premises. CodeRabbit's [platform overview](https://docs.coderabbit.ai/platforms/overview) puts its self-hosted deployment behind an Enterprise contract with 500 or more user seats, and offers a reverse tunnel as the option for a private-network host that cannot accept inbound connections.
+
+Kodus splits it three ways: Community is free and can run self-hosted or in the cloud, Teams is cloud only at $10 per active developer per month on your own model key, and Enterprise is self-hosted or cloud with custom pricing. Its quickstart documents the same allowlist step for each self-managed host, and Forgejo connects by token with community-maintained support.
+
+Self-hosting changes the cost shape rather than removing it, which is a separate number from the license and worth running before you commit to a self-managed path. The published test I went through puts a self-hosted review stack at $4,100 to $9,100 a month once infrastructure and maintenance are counted, against $24 to $30 per developer per month for a hosted per-seat reviewer, which is covered in [what self-hosting AI code review actually costs](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/).
+
+## How to check your own shortlist
+
+The check takes an hour and it runs in this order.
+
+List your Git hosts, including any self-managed instance and the version you run. For each tool still on the list, open its provider-support or platform page and read the per-provider notes rather than the availability table, because the availability table is where the gaps are hidden. Write down three things for each: which write-back actions exist on your host, whether a skipped or rate-limited review reports success to your branch protection, and whether the self-managed path is a separate contract with a seat minimum.
+
+The one thing you cannot answer from documentation is whether a preview path is production-ready for you. GitHub lists Copilot code review on Azure DevOps as public preview and documents that agentic capabilities run on GitHub Actions runners, with a fallback to a more limited review when Actions is unavailable. Whether Copilot approvals count toward merge requirements on that Azure DevOps preview is unknown from the current pages, and worth asking GitHub directly before you build a gate on it.
+
+## FAQ
+
+**Can I use GitHub Copilot code review on GitLab or Bitbucket?**
+No. GitHub's own availability list names GitHub.com, GitHub CLI, GitHub Mobile, VS Code, Visual Studio, Xcode, JetBrains IDEs and Azure DevOps in public preview. GitLab and Bitbucket are not on it.
+
+**Does an AI reviewer's check block a merge on every host?**
+It can be required on GitHub, GitLab, Azure DevOps and Bitbucket, but the semantics differ. On GitHub a skipped or rate-limited review has its own state. On the other three hosts the commit status reports success for those reviews, so a required check alone cannot distinguish a completed review from one that never ran.
+
+**Why does the same tool offer fewer actions on Bitbucket?**
+Because the provider's API is the limit, not the tool. Bitbucket has no anonymous artifact viewing, no file-level comments without a line anchor, and no committable suggestions in CodeRabbit's matrix, and Kodus documents that Bitbucket has no reaction API, so review status arrives as a comment. Those are provider capabilities the tool cannot add.
