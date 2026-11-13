@@ -1,0 +1,76 @@
+---
+title: "How Meta cut pull request review time with AI"
+description: "Meta's RADAR study cut median PR time to close by over 330% and review wall time by 35% by auto-landing low-risk diffs. What the method needs to work."
+pubDate: 2026-11-13
+category: "guide"
+tags: ["aicodereview", "codereview", "pullrequests", "reviewmetrics"]
+faq:
+  - q: "What does the 330% reduction in time to close mean?"
+    a: "It is a ratio stated as a percentage, not a share of the original. Meta reports median time to close for RADAR-handled diffs as over 330% lower than for human-reviewed diffs, which describes a large drop in queue wait. The same paper reports median diff review wall time down 35%, a much smaller move."
+  - q: "Is RADAR a product I can buy?"
+    a: "No. It is an internal system Meta describes in a paper, built on Meta's own monorepo, landing workflow, Diff Risk Score and validation infrastructure. The published details are a design to adapt rather than software to install."
+  - q: "Did auto-landing raise Meta's incident rate?"
+    a: "The paper reports the opposite for the period measured: a revert rate one third that of non-RADAR diffs and a production incident rate one fiftieth. The authors label these operational indicators rather than causal results, and note that regressions can be fixed without an incident and that incident attribution is imperfect when changes land close together."
+  - q: "Does a faster AI reviewer reduce review time?"
+    a: "It reduces part of it. Reading time is what a reviewer changes, and Meta's own numbers separate that from queue wait. If changes sit unread overnight, the largest term is time waiting for attention, which a faster reviewer does not address."
+---
+
+Most answers to how a team can reduce pull request review time with AI describe a faster reviewer. The largest measured result that exists points at something else. Meta cut the time by taking whole categories of changes out of the human queue and landing them automatically.
+
+Meta published the study of RADAR (Risk Aware Diff Auto Review) [on arXiv](https://arxiv.org/abs/2605.30208) on 28 May 2026, with a revision on 12 June 2026. The same paper reports that the automated review stage moved median review wall time by 35%. The gap between that number and the headline reduction is the part worth understanding before you buy a faster reviewer.
+
+## What Meta measured
+
+At Meta, significant lines of code per human-landed diff grew 105.9% year over year, diffs per developer per month rose 51%, and more than 80% of that growth was attributed to agentic AI. Over the same period the share of diffs reviewed within 24 hours fell, and some large groups were carrying thousands of pending reviews.
+
+Most teams will recognize the shape of that: more changes arriving than reviewer hours can cover.
+
+RADAR reviewed more than 535,000 diffs and landed more than 331,000 of them, peaking at 25,000 diffs a day. Median time to close fell by over 330% against human-reviewed diffs, and median diff review wall time fell 35%. The revert rate on RADAR-reviewed diffs is one third that of non-RADAR diffs, and the production incident rate is one fiftieth.
+
+The comparison is a difference-in-differences style estimate rather than a randomised trial, and the paper says so. Diffs were not randomly assigned to RADAR, rollout expanded gradually, and eligibility policy changed over time. The authors list the parallel-trend assumption and the missing model specification as internal validity threats.
+
+## The 330% is a ratio, so read it as one
+
+A reduction above 100% is a ratio stated as a percentage, and the paper reports it that way. What matters more is the gap between the two metrics it reports. Median time to close includes queue wait, and that is the one that moved by over 330%. Median review wall time is time spent in review, and that moved 35%.
+
+If changes sit unread overnight, the first number describes your bottleneck, and an auto-landing policy is what moves it. Time to close and time to first review are different measurements, and a tool that speeds up the reading does not touch the waiting.
+
+Meta's own framing says as much: the point of removing low-risk diffs was to stop them competing with higher-risk ones for reviewer attention.
+
+## What the funnel actually does
+
+RADAR is a sequence of gates rather than a single model. Each diff is classified by authorship and source type, run through eligibility rules, scored with a machine-learned Diff Risk Score, passed to LLM-based automated code review, and checked by deterministic validation before it can land. Only diffs that clear every stage land without a human.
+
+The calibration lever is the risk threshold. Meta relaxed it from the 25th percentile to the 50th, and the approve rate rose to 60.31%. The paper reports no safety degradation from that widening, which is the claim to be skeptical of and also the one that is measured, since revert and incident rates are tracked across the whole period.
+
+The order of the stages is the transferable idea. Deterministic validation runs after the model, so the model is not the last word. The risk score is separate from the review, so a change can be excluded from automation before anyone asks whether it looks correct. That split makes a threshold tunable without retraining anything.
+
+## What it needs before it works on your repository
+
+The generalizability section is unusually direct. The result comes from a large monorepo with standardised tooling and high automation coverage for testing and rollout, and the eligibility rules were built for that environment. Where changes are larger and tests are less reliable, or where releases are less incremental, the authors say the magnitude of the effect may differ.
+
+Read that as a list of prerequisites. Auto-landing a diff depends on a validation step that is deterministic and trusted, since that step stands in for a reviewer reading the change. It depends on a risk score that separates low-risk from high-risk changes well enough that a threshold means something. Remove the validation step and what remains is auto-merge with extra steps, which is a different policy with a different failure mode.
+
+There is a smaller version that keeps the useful part. Even without auto-landing, separating eligibility from review depth works: decide which paths and change types are low-risk enough for a cheap automatic pass, and reserve human reading for the rest. That is the same decision as [routing review depth by change type](https://agentwrotethis.dev/blog/reduce-review-noise-which-layer-each-reviewer-turns-down/).
+
+## Where the review tools sit on this
+
+None of the products in this market ships the full RADAR funnel. What they ship is the review-and-approve gate, and the differences that decide the outcome are which platforms get it, what holds an approval back, and what you pay per review.
+
+Three of them document an approving review that can count toward a merge requirement.
+
+| Tool | Can land without a human | What holds it back | Platforms with the behavior | What you pay | Source |
+| --- | --- | --- | --- | --- | --- |
+| GitHub Copilot code review | Approving review, which can count toward merge requirements; it does not merge | Auto-approval toggles, plus up to 15 file globs limiting which paths count | GitHub | AI credits, 1 credit = $0.01, metered by model tokens | [Configure code review](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review) and [models and pricing](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) |
+| CodeRabbit | Approving review once its feedback is resolved and the latest commit is reviewed; it does not merge | Risk limits, path overrides and team overrides that disable approval | GitHub, GitLab, Azure DevOps, Bitbucket | Reviews counted per developer per hour; Essentials plan and above | [Automatic Approvals](https://docs.coderabbit.ai/pr-reviews/automatic-approvals) |
+| Kodus | Approving review that can satisfy your merge policy; it never merges | Risk assessment that holds anything not rated low, plus up to 100 sensitive-path globs and label or author filters | Full conditions on GitHub and GitLab; partial on Bitbucket, Azure Repos and Forgejo | $10 per active developer per month, reviews unlimited, tokens on your own key | [Auto-approve](https://docs.kodus.io/en/how_to_use/code_review/configs/auto_approve) and [pricing](https://docs.kodus.io/en/how_to_use/pricing) |
+
+The table shows the gap plainly. Every one of these products stops at the approval, and the merge still needs a person or a repository rule. They shorten the reading and can clear the approval requirement, but none of them removes the diff from the queue the way RADAR does. If your bottleneck is waiting rather than reading, an approval bot changes less than the RADAR numbers suggest, because the 330% came from landing the change, not from reviewing it faster.
+
+Whether an approval like that clears your branch protection is a repository setting rather than a product feature, and [which approvals satisfy a merge requirement](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) is a decision you make on GitHub or GitLab before any of this changes your latency.
+
+## What to measure before you tune anything
+
+Pick the metric that matches the bottleneck, and measure it before you change policy. If changes sit unread, that is time to first review, and the fix is routing or auto-landing rather than a better model. If review drags once it starts, that is review wall time, and a reviewer that reads more of the change in one pass is what helps. Recording both on your own repositories for a normal week gives you the baseline RADAR had before it moved anything, and both are the numbers that [a per-review cap or refill rate](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) shows up in.
+
+Then decide the smallest version of the funnel you can defend. You can adopt the pieces one at a time: an eligibility rule and a risk threshold are useful on their own, and the deterministic check is the piece that makes auto-landing safe to turn on. The mistake is turning on the last piece first, because auto-landing without a trusted validation step is not the workflow Meta measured.
