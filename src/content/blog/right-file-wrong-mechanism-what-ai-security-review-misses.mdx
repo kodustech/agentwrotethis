@@ -1,0 +1,76 @@
+---
+title: "Right file, wrong mechanism: what AI security review misses"
+description: "A 265-task benchmark of agentic security review on real vulnerability commits: recall from 32.5% to 78.1%, and 68% of misses diagnosing the wrong mechanism."
+pubDate: 2026-11-14
+category: "explainer"
+tags: ["aicodereview", "codereview", "security", "benchmarks"]
+---
+
+A benchmark published in October 2026 pairs 265 real vulnerability-introducing commits with the commits that later repaired them, then grades whether an AI reviewer explained the flaw. Recall across eight frontier models runs from 32.5% to 78.1%. The number worth your attention is in the misses. In 68% of them, the agent filed a finding in the file that holds the flaw and argued for a different mechanism.
+
+The paper is [Can Agentic Code Review Catch Vulnerabilities Before They Are Merged?](https://arxiv.org/abs/2610.33509), a preprint on arXiv (2610.33509v2, revised 30 October 2026), so it has not been through peer review. What it has is a method you can inspect, with the tasks, reports and judge verdicts released. That matters more than the ranking, because the misdiagnosis result changes what an AI review comment is worth as evidence, and no comment count or file-coverage metric will surface it.
+
+## What the benchmark grades
+
+Each task gives the agent three things: the diff of a historical change that introduced a vulnerability, its commit message, and the repository. The advisory and any proof of concept are withheld. The agent returns free-text findings. A finding earns credit only if it explains the target's causal failure: what triggers it, which operation becomes unsafe, and which guard, bound, lifetime rule or trust boundary is missing.
+
+The tasks come from nine deployed C, C++ and Rust projects including Firefox, V8 and OpenSSL. Changes run up to 30 files and 2,000 changed lines. Every buggy task is paired with a fixed companion that adds the later repair, and on that companion the target should no longer be reported. Of the 265 cases, 217 pass mechanical checks, mostly replaying a proof of concept against the parent, introducing and repaired trees. The other 48, races and partial fixes among them, rest on human adjudication with the automated outcome recorded beside each decision.
+
+The grading protocol is where the useful design choices sit. The judge is a model, Claude Opus 5.5 at high effort, working through three steps in one session: write three to six conditions that separate the target from nearby bugs, check whether any finding meets those conditions, then confirm the causal chain is still present in the reviewed code. That third step exists because a finding can describe the historical flaw correctly and still be wrong about the code in front of it. Two judges agreed on 96.9% of 2,143 nonempty buggy reports, and the authors audited a sample of agreements and disagreements by hand.
+
+## The misses are misdiagnoses
+
+Recall for the eight direct-review agents: Grok 4.6 at 78.1%, GPT-6 sol at 76.2%, GLM 5.3 at 74.7%, Opus 5.5 at 74.0%, Sonnet 5 at 59.2%, GPT-5.6 sol at 55.8%, GPT-6 luna at 55.5%, MiniMax M3 at 32.5%. The paper reports no statistically reliable gap among the top four, so the ordering inside that group is not a result. Cost separates them more sharply: mean estimated cost per scan runs from $0.44 for Opus 5.5 to $3.20 for Grok 4.6, on the same tasks.
+
+Then the part that should shape a review process. Among misses in direct review, 68% were a finding in a root-cause file that the judge rejected for describing a neighboring mechanism. In one curl case, a nine-line change leaves a request path pointing into a buffer that dangles once its connection is freed. All eight agents report on that file. Four call the buffer leaked, the GPT agents call the line a logic bug, and the audit upheld one such rejection. The agent reached the location and told a story about it that does not survive reading the code.
+
+That failure mode looks like success at every layer a team currently measures. The reviewer commented. The comment lands on a changed file. The reviewer is not silent, not rate-limited, not erroring. A pipeline that scores review coverage by comments per pull request records a hit, and the merge proceeds with a plausible wrong account of the risk attached.
+
+The paper also found that agents rarely fail to reach the right file, and gives a reason that should temper any coverage metric built on file overlap: the diff almost always includes the root-cause file. Where the flaw depends on code outside the diff, pooled recall falls from about seven in ten with one root-cause file to under four in ten with five or more, even among diffs of similar size. Change size and vulnerability age showed weak or no association. Those splits are observational, so read the direction rather than the slope. It is a useful counterweight to the file caps and diff budgets that decide whether a reviewer reads a change at all, which is a separate limit from whether it understands one.
+
+## Two harnesses, two directions
+
+Two security-focused harnesses ran with the backend model and reasoning effort held fixed. OpenAI's Codex Security lowers GPT-5.6 sol's recall by 8.3 points, mostly by abstaining: on most tasks that direct review found, it returns nothing, at about five times the mean estimated cost. Anthropic's Defending Code reference harness raises Opus 5.5's recall by 7.7 points on the pairs it completed, at roughly ten times the median nominal cost, and it alone finds all ten concurrency targets, where no direct-review agent finds more than six. The paper notes both comparisons stay descriptive because prompts and budgets differ.
+
+A wrapper around the same model can move recall by several points in either direction, and abstention is the mechanism in the negative case. A reviewer that returns nothing reads as a quiet reviewer rather than a wrong one.
+
+Combining agents helps less than independence would suggest. The three leading agents together find about nine in ten targets. All eight together find one more than the top four, and they leave 23 targets unfound, more than independent errors would predict.
+
+## The parts you can check
+
+The benchmark measures diagnosis. The numbers a team can verify before buying are still the operational ones, and they live in documentation rather than benchmarks. That is also where you can tell whether a limit binds your queue, since a per-seat allowance and a per-review file cap fail in different ways.
+
+| Tool | Published review allowance | Published per-review file cap | Detection figure with a method | Self-hosting |
+| - | - | - | - | - |
+| [Kodus](https://docs.kodus.io/en/how_to_use/pricing.md) | Unlimited reviews on every plan, on your own model key | Pull requests over 2,000 changed files are not reviewed | None published | Community is self-hosted or cloud, Enterprise self-hosted |
+| [CodeRabbit](https://docs.coderabbit.ai/management/plans.md) | 1 to 12 reviews per developer per hour by plan, with a fair usage policy that can lower the refill rate | 150 files on Free and Essentials, 300 from Team up | None on its own docs pages | Enterprise |
+| [GitHub Copilot code review](https://docs.github.com/en/copilot/concepts/code-review/code-review) | Metered in AI credits; estimated $0.05 to $1 per review at Lite (average $0.25), $0.25 to $5 at Balanced ($1.50), $1.50 to $25 at Max ($10) | Not published, so unknown | None published | Cloud only |
+| [Macroscope](https://macroscope.com/blog/code-review-benchmark) | Unknown | Unknown | Yes: 118 runtime bugs from 45 repositories, with the dataset process and grading described | Unknown |
+
+The Macroscope row is the one to read carefully rather than dismiss. Its benchmark reports 48.3% detection for its own tool, 45.8% for CodeRabbit, 42.4% for Cursor Bugbot, 23.6% for Greptile (17 of 72) and 18.3% for Graphite Diamond. The sample sizes per tool differ, Greptile access was disabled midway through the evaluation, and the vendor scored itself first. The method is published, which puts it ahead of a percentage with no corpus attached, and the numbers are still not comparable across rows.
+
+If your binding constraint is review allowance rather than diff size, a tool that documents unlimited reviews and a 2,000-file cap answers a different question than one metering AI credits per review. Both are checkable before you commit, and neither tells you anything about diagnosis quality.
+
+## How to read a detection figure
+
+Four things to ask before a percentage changes your decision. What is the corpus, and where did the buggy changes come from: real introducing commits, or fixes reverted into a plausible diff? What is the rubric, and does it credit a location or a mechanism? How many tasks did each tool actually get scored on, since a per-tool sample of 72 is a different claim from one of 118? And is the vendor one of the tools being scored, with its own row at the top?
+
+The same questions apply when you read your own reviewer's output. A finding that names the right file is the floor, not the signal. If the comment does not state a trigger, an unsafe operation and the condition that is violated, someone still has to derive those before the merge, and the benchmark's 68% says the derivation fails often enough to be the normal case rather than an edge case.
+
+## What the study does not settle
+
+It measures whether agents find and diagnose known vulnerabilities, not how often an ordinary pull request is vulnerable. Each agent got one run per task without matched token budgets, so cost and time comparisons are descriptive. The fixed companions control only for their own targets and do not establish report precision: location overlap alone would credit about three in four companion scans, and over nine in ten nonempty reports still name a root-cause file even after the repair. The scope is security review of systems code in C, C++, and Rust, so the recall figures do not transfer directly to application code, and the whole thing is a preprint.
+
+The published limits in the table, by contrast, are the parts that hold regardless of how the diagnosis question resolves, and they are the parts you can re-check each month before you re-cite them.
+
+## FAQ
+
+**Does this mean AI code review does not work?** It means the leading agents find the flaw in most of these security cases and describe the wrong mechanism in most of their misses. The work that remains after a review comment is adjudicating the diagnosis, which is why a comment count is a poor proxy for coverage.
+
+**What is the difference between finding the right file and detecting a vulnerability?** Detection in this benchmark requires explaining the causal failure: the trigger, the unsafe operation, and the missing or incorrect guard, bound, lifetime rule or trust boundary. Naming the file, or warning about a neighboring bug in it, earns no credit.
+
+**Are the recall numbers comparable to vendor detection rates?** No. This benchmark uses real vulnerability-introducing commits from nine systems projects and withholds the advisory and proof of concept. Vendor figures use their own corpora, grading and per-tool sample sizes, so the two sets answer different questions.
+
+**Which published numbers can a team verify before buying?** Review allowances, per-review file caps, platform support, approval defaults, deployment options and pricing. Those appear in documentation and change on a monthly cadence, which is why they are worth re-checking rather than quoting from a comparison page.
+
+Claims checked 2026-11-09.
