@@ -1,0 +1,87 @@
+---
+title: "Greptile alternatives: how each tool meters agent volume"
+description: "Greptile alternatives compared by metering unit instead of review quality claims. What Greptile, CodeRabbit, Copilot, Qodo, Graphite, Bugbot and Kodus each document about credits, review events, seats and exhaustion."
+pubDate: 2026-11-16
+category: "alternatives"
+tags: ["aicodereview", "codereview", "greptile", "pullrequests"]
+---
+
+Last updated: 2026-11-16.
+
+The pages that rank for Greptile alternatives compare these tools on review quality, and the numbers they use cannot be checked. The difference that can be checked is how each tool charges for a review, because that is what decides whether a queue full of agent output stays affordable and available. Greptile's [billing documentation](https://www.greptile.com/docs/account/billing-seats.md) is unusually specific about it. Credits cost $1 each and are shared across the organization, a Base review spends 1 credit, Plus spends 3, Apex spends 10, a TREX run adds 3 on top, and when the balance reaches zero new reviews pause until someone buys more.
+
+That design is one reason teams go looking for an alternative. It is also the criterion the existing comparison pages skip, which leaves a reader who is being buried by agent pull requests with no way to predict a bill. Read the metering pages of the tools that appear in those lists and they sort into a few groups, each with a different behavior as review volume grows.
+
+## What the alternatives pages actually compare
+
+Nine organic results come back for the query. Every one is a vendor or aggregator listicle. The names that repeat across them are Macroscope, CodeRabbit, Cursor Bugbot, Qodo, GitHub Copilot code review, Graphite, Aikido Security, Hacktron, Revix, Cubic, Optibot and Amazon Q. Several attach percentages to review recall or accuracy. None of the pages that rank publishes the corpus, the grading rubric, or the runner behind those numbers, and none states the metering unit of the tools it recommends.
+
+A page that ranks seven reviewers without saying whether a review costs a credit, a review event, or nothing tells you how to pick a logo. It does not tell you what happens in month three, when your pull request count has doubled because agents open most of them and your headcount has not moved.
+
+## The metering unit decides what agent volume does to you
+
+Two properties matter more than feature lists: whether the meter moves when review volume moves, and what the tool does when the meter is exhausted.
+
+| Tool | Documented metering unit | Effect of a growing agent queue | Deployment documented |
+| --- | --- | --- | --- |
+| Greptile | Prepaid credits, $1 each, shared org-wide; Base 1, Plus 3, Apex 10, TREX +3 | Spend scales with review volume; reviews pause at zero balance | Cloud; self-hosted on annual contract |
+| CodeRabbit | Review events per developer on a rolling hourly allowance (5, 8, 10 or 12 by plan) with fair-usage refill bands | Events scale with pushes; refill rate drops to one per hour at 60 to 80 reviews in 7 days | Cloud; self-hosting on Enterprise |
+| GitHub Copilot code review | AI credits; the docs estimate about $0.25 Lite, $1.50 Balanced and $10 Max per review | Spend scales with review depth, and reviews run on GitHub Actions runners | Cloud only |
+| Qodo | Credits at $0.015, pooled across the team; larger PRs draw more | Spend scales with PR size and count; credits expire at the end of each monthly cycle | Cloud; Enterprise single-tenant SaaS or on-prem |
+| Graphite | Per seat; unlimited AI reviews from the Team plan upward | Reviews stay flat; cost scales with headcount instead | Cloud; GitHub Enterprise Server on Enterprise |
+| Cursor Bugbot | Per seat, with a documented cap on reviews of bot-authored PRs, per team | That cap is what agent volume reaches first | Cloud; GitLab, Bitbucket, Azure DevOps and Origin |
+| Kodus | $10 per active developer plus tokens on your own key; reviews unlimited on every plan | Cost follows tokens you buy directly, not review count | Free Community self-hosted or cloud; Enterprise self-hosted |
+
+The split is not subtle. Credit-metered tools make a review a variable cost, which is the honest model if review volume is the thing that is growing. Seat-metered tools make the marginal review free and put the cost in headcount, which only works if headcount grows with volume. Unlimited-BYOK tools move the cost to model tokens, where you set the model and see the bill from your provider rather than from the reviewer.
+
+## Where the meter runs out, per each tool's own docs
+
+Greptile's tier guidance points at agent work without saying so. Its [review tiers page](https://www.greptile.com/docs/code-review/review-tiers.md) recommends running Apex on pull requests into production and on pull requests where files changed is more than 30. Apex costs 10 credits, so a repository where agents routinely touch more than 30 files is a repository where the recommended configuration spends $10 per review. Auto picks a tier from size, risk and complexity and charges the tier that ran, which is the closest thing Greptile documents to volume-aware pricing.
+
+Self-hosting changes the contract rather than the meter. [Self-hosted Greptile](https://www.greptile.com/docs/self-hosting/self-hosted-greptile.md) runs on Docker Compose on your own compute, supports air-gapped environments, and requires you to provision PostgreSQL with pgvector and a Redis cache. Pricing there is annual contracts with monthly payments, a 15% discount for paying upfront, no free trials, a full refund within the first 30 days, and pro-rated refunds in months two through four on upfront payments. Code hosts include GitHub, GitLab, Bitbucket, Cursor Origin, Gitea and Perforce. The cost of self-hosting on top of the contract is a separate question, and [what self-hosting adds to the bill](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/) is worth reading before treating it as the cheap option.
+
+CodeRabbit meters review events, and its [rate limit documentation](https://docs.coderabbit.ai/management/rate-limits.md) is explicit that the unit is the push rather than the commit. Three commits pushed together spend one review event. The same three commits pushed one at a time spend three. Editing a file in the GitHub web UI is a commit and a push in one action, so it spends one as well, and so do the Update branch and Resolve conflicts buttons. Then the [fair usage policy](https://docs.coderabbit.ai/management/rate-limits.md#fair-usage-limits-policy) lowers the refill rate as recent activity rises: Essentials falls from 5 reviews per hour to 1 at 60 or more reviews in seven days, Team from 8 to 1 at 70 or more, Advanced from 10 to 1 at 80 or more. Enterprise only gets adaptive limits if a new contract is explicitly enrolled. [Which limit binds first once agent volume arrives](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) works through that arithmetic in full.
+
+GitHub Copilot code review is metered in AI credits, and the [how-to page](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-code-review) gives rough per-review costs by effort level: about $0.25 with Lite, $1.50 with Balanced, and $10 with Max. It also notes that reviews use GitHub Actions to run agentic capabilities, which puts runner minutes on the same change. One default is worth knowing before you plan a merge gate around it. Copilot leaves a Comment review by default rather than an Approve or Request changes review, so it does not count toward required approvals unless someone configures it to approve.
+
+Qodo prices credits at $0.015, pooled across the team, and [its pricing page](https://www.qodo.ai/pricing/) shows credit packs against expected review volume: 2,000 credits at roughly 14 reviews per month, 4,000 at roughly 29, and 16,000 at roughly 114. That works out to about 140 credits and about $2.10 per review at list, arithmetic taken from the vendor's own page rather than a stated unit price per review. Credits expire at the end of each monthly cycle, overage continues at the base rate up to a spending cap you set, and there is no permanent free tier.
+
+Graphite sells seats. [Its pricing page](https://graphite.com/pricing) lists Starter at $20 per user per month billed annually and Team at $40, with unlimited AI reviews from Team upward and limited AI reviews on the free Hobby tier. Nothing in the meter responds to how many pull requests agents open, so the cost per review falls as volume rises and the total rises only when you add people.
+
+Cursor Bugbot documents two caps that matter here. Its [documentation](https://cursor.com/docs/bugbot) says Bugbot skips pull requests larger than a default review-size limit measured in changed lines and diff characters and posts a comment asking you to split the change, and that skipped runs record no usage. It also caps how many reviews it runs on pull requests opened by bot accounts, per team, with every review counting including repeat reviews of the same pull request, and notes that the default cap can differ per team. That cap is the one an agent-driven workflow reaches first. Separately, Bugbot's check defaults to a neutral conclusion, so requiring the check makes it run before merge without blocking the merge on its findings.
+
+Kodus charges per active developer and runs reviews on your own model key. Its [pricing documentation](https://docs.kodus.io/en/how_to_use/pricing.md) lists Community as free and self-hosted or cloud, Teams at $10 per active developer per month with tokens billed by your provider and no markup from Kodus, and Enterprise as custom with SSO, RBAC, audit logs and a dedicated instance. Reviews are unlimited on every plan, the only hard cap is that pull requests above 2,000 changed files are not reviewed, and only developers who open pull requests count toward a seat.
+
+## The choice follows from how your queue is growing
+
+If your pull request count is climbing because agents open most of them and your headcount is flat, credit-metered and event-metered tools get more expensive per month and can stop serving reviews at the cap, while seat-metered and unlimited-BYOK plans hold steady. That is the whole decision for most teams, and it is a volume forecast rather than a feature comparison.
+
+Depth control is the second lever. Greptile's Auto tier, Copilot's effort levels and CodeRabbit's per-plan file caps all let you spend less on routine changes and more on the ones that need it. A tool without a depth dial charges the same for a one-line config change as for a migration, which is a poor fit for a queue where agents generate both.
+
+Deployment is the third, and it is usually a compliance constraint rather than a cost one. Greptile self-hosted is a sales conversation with an annual contract, Qodo puts on-prem and single-tenant SaaS behind Enterprise, and Kodus ships a free self-hosted Community tier. If the requirement is that code never leaves your network, the set of candidates is small before price enters the discussion.
+
+None of these choices fix the wait before review starts. The largest published dataset on the question, LinearB's [2026 software engineering benchmarks report](https://linearb.io/library/ai-in-software-development) built from more than 8.1 million pull requests, puts agentic pull requests at 17.6 hours at the 75th percentile before anyone picks them up, against 6.4 hours in review. A faster or cheaper reviewer touches the second number. If your problem is the first one, the buying decision is about routing and ownership rather than about which reviewer reads the diff, and [what a queue ranker can see](https://agentwrotethis.dev/blog/what-your-review-queues-ranker-can-and-cannot-see/) is the more useful page.
+
+## What to check before you switch
+
+Read the metering page rather than the pricing page. The pricing page gives you a number per developer per month and the metering page tells you what draws it down. For CodeRabbit that is the difference between 5 reviews an hour and 1.
+
+Read what happens at exhaustion. Greptile pauses reviews at zero credits. CodeRabbit reduces the refill rate. Qodo continues into overage until a cap you set. Bugbot records no usage for a skipped run. Those four behaviors produce different incidents on a Friday afternoon.
+
+Read the merge-gate default. A tool that leaves a Comment review does not satisfy a required approval until someone changes a setting, and the setting may live on the platform rather than in the tool.
+
+Ask for the dataset behind any quality percentage. The metering, deployment and merge-gate defaults are documented and checkable. The recall and accuracy figures on the alternatives pages are not, and the teams that publish them are the ones being ranked. For a wider view of the tools themselves rather than their meters, [a tool ranking for agent-heavy queues](https://agentwrotethis.dev/blog/best-ai-code-review-tools-for-teams-reviewing-agent-generated-code-2026/) covers platform support, approval behavior and file caps in the same way.
+
+## FAQ
+
+**Is Greptile the most expensive option for a queue full of agent pull requests?**
+
+It depends on review volume per developer, which is the number the alternatives pages leave out. A Greptile Base review costs $1 and an Apex review costs $10. CodeRabbit Essentials is $24 per developer per month billed annually with a refill rate that falls under sustained use. Copilot code review runs about $0.25 per review at Lite effort. Qodo works out to roughly $2.10 per review from its own credit packs. Kodus is $10 per active developer per month plus tokens you buy directly. At low volume per reviewer, per-review metering is cheap. At high volume, seats and unlimited plans win.
+
+**Do any of these tools limit how many agent pull requests they will review?**
+
+Yes, in different places. Cursor Bugbot caps how many reviews it runs on pull requests opened by bot accounts, per team, and skips pull requests above a default size limit measured in changed lines and diff characters. CodeRabbit's fair usage policy lowers a developer's refill rate to one review per hour at 60 to 80 reviews in seven days, depending on plan. Greptile pauses reviews when the credit balance hits zero. Kodus reviews unlimited pull requests but skips any above 2,000 changed files. Copilot's documentation does not state a review-count cap, so that answer is unknown from the pages it publishes.
+
+**Which claims on the alternatives pages can actually be checked?**
+
+The metering unit, the exhaustion behavior, deployment options, supported code hosts, file caps and merge-gate defaults all appear in vendor documentation, so they can be verified and compared. Review recall and accuracy percentages generally do not include a corpus, a rubric or a runner, which makes them claims rather than measurements. Treat the first group as the basis for a decision and the second as marketing until a method is published alongside it.
