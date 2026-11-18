@@ -1,0 +1,76 @@
+---
+title: "Reduce PR review time with AI: the wait is mostly in pickup"
+description: "LinearB's 8.1M-pull-request dataset shows the AI review delay sits mostly in pickup time. How to measure pickup and review separately, and which levers move each."
+pubDate: 2026-11-18
+category: "guide"
+tags: ["aicodereview", "codereviewmetrics", "pullrequests", "engineeringmetrics"]
+faq:
+  - q: "Does AI code review actually reduce pull request review time?"
+    a: "It reduces the review phase, which is the smaller part of the wait in the largest published dataset. LinearB's 8.1-million-pull-request report puts agentic pull requests at 17.6 hours pickup time at the 75th percentile against 3.4 for unassisted work, while review time is 6.4 against 4.2. A tool that speeds up review touches the second number."
+  - q: "What should a team measure to reduce review time?"
+    a: "Pickup time and review time as separate numbers, split at the moment of first human activity and reported by contribution type. A single review-time number makes a routing problem and a reviewer problem look identical, so you cannot tell which one is costing you."
+  - q: "Which phase do AI review tools actually move?"
+    a: "The review phase, once someone picks the change up. A tool that only comments on a diff does not assign the change, so it does not move pickup time unless it also ranks or routes the queue. That is why the pickup figure stays high even for teams already running an AI reviewer."
+---
+
+Most teams try to cut pull request review time with AI by making the review step faster. The largest published dataset on the question puts most of the delay earlier than that. LinearB's [2026 Software Engineering Benchmarks Report](https://linearb.io/library/ai-in-software-development), built from more than 8.1 million pull requests across 4,800 teams and 163,820 contributors in 42 countries, splits AI contributions into three types and measures them apart. Fully agentic pull requests sit at 17.6 hours before anyone starts reviewing them at the 75th percentile, against 3.4 hours for unassisted work. Once picked up, those same agentic changes clear review in 6.4 hours. The gap between agent output and human output is about five times larger before review starts than during it.
+
+The report is correlational, and its own page says so, presenting the relationships as patterns to test against your pipeline rather than settled law. With that caveat, the split is specific enough to act on.
+
+## Where the wait sits, by contribution type
+
+The report separates AI contributions into three types instead of one bucket: agentic pull requests opened by tools such as Devin, Copilot Coding Agent, or OpenAI Codex, AI-assisted pull requests a developer writes with AI help, and unassisted work. Treating the three as one category produces averages that describe none of them.
+
+| Pull request type | Median size (lines) | P75 size (lines) | Pickup time P75 (hours) | Review time P75 (hours) |
+| --- | --- | --- | --- | --- |
+| Agentic AI | 89 | 293 | 17.6 | 6.4 |
+| AI-assisted | 96 | 408 | 8.3 | 3.2 |
+| Unassisted | 26 | 157 | 3.4 | 4.2 |
+
+Two entries in that table matter more than the headline. AI-assisted pull requests are the largest of the three at the 75th percentile, at 408 lines, ahead of fully agentic ones at 293. And review time inverts the pickup order, with AI-assisted changes clearing review in 3.2 hours against 4.2 hours for unassisted work, so the biggest changes receive the least review attention. A policy that keys review depth off size would produce the opposite pattern. That inversion is not unique to this dataset either. In a set of repositories tracked over time, [review time plateaued because reviewers had stopped reading](https://agentwrotethis.dev/blog/when-review-time-plateaued-reviewers-had-stopped-reading/), which looks like improvement on a dashboard and behaves like coverage loss in production.
+
+## Why pickup is the phase that responds
+
+Pickup time is a routing and ownership property. Someone has to be assigned, and someone has to believe the change is worth reading before the clock starts. The report names three drivers behind the gap for AI changes: ownership of agent-created work is unclear, agentic flows get pointed at low-priority backlog items, and reviewers hesitate on larger or more complex AI changes. Making the review step itself faster does not touch any of those.
+
+That distinction decides which tools can help here. A reviewer that only comments on a diff cannot move pickup time, because the change is already open and unassigned. A reviewer that also ranks or assigns the queue can. If you are evaluating tools on this claim, the ranker is the part worth examining, since [what a review queue's ranker can and cannot see](https://agentwrotethis.dev/blog/what-your-review-queues-ranker-can-and-cannot-see/) determines whether it shortens the wait or just relabels the same queue.
+
+## Reviewer confidence is part of the pickup number
+
+The same report's leadership survey gives the pickup gap a second explanation. Asked how confident they are in AI-generated code quality, 39.4% of respondents are somewhat confident, 33% are neither confident nor unconfident, 19.1% are somewhat unconfident, and 6.4% are extremely confident. Only the last group is unambiguously willing to pick up agent work without a second opinion.
+
+That distribution is why pickup time is not purely an assignment problem. Even with a named owner, a reviewer who is unsure about the output has a reason to defer it, and deferral is exactly what the 17.6-hour figure measures. The kind of work AI produces adds to the load as well. Refactor rate at the 75th percentile runs 0.37 for unassisted pull requests, 0.22 for AI-assisted, and 0.17 for agentic work, so human-authored changes touch existing code at more than 1.5 times the rate of either AI category. AI output skews toward new code paths, which means more surface area entering the codebase and less consolidation of what is already there.
+
+Commit hygiene runs the other way. AI-assisted commits touch 4.2 files on average against 7.51 for unassisted commits, at a similar 65 to 66 lines per file, so AI tools hold tighter commit boundaries than developers do. The review problem is one of volume and context rather than sloppiness, which is consistent with what teams report when they describe [reviewing the growing volume of AI-generated code](https://agentwrotethis.dev/blog/reviewing-the-growing-volume-of-ai-generated-code/).
+
+## The metric that says whether the fix worked
+
+Pickup time is a leading signal. The outcome the same dataset tracks is acceptance rate, the share of pull requests merged within 30 days. Manual pull requests merge at 84.4% against 32.7% for AI pull requests, and the gap holds across every performance tier. Reaching the elite band takes above 95% acceptance for manual work but only just above 71% for AI work. Exceeding 60% acceptance on AI pull requests is difficult for the teams in the set.
+
+Two details keep that number honest. Manual acceptance holds steady around 80% to 82% month over month, while acceptance for agent-created work moves by tool, with Devin improving from April and Copilot declining from May. A single policy for all AI output hides that spread, so calibrating expectations tool by tool is more accurate than setting one threshold. The report also flags one organization running Devin at high adoption with acceptance near parity with manual work, which it frames as possible rather than typical.
+
+## Measure pickup and review as separate numbers
+
+If you report one number for review time, a routing problem and a reviewer problem look identical, and you will spend on the wrong one. Split the phase at the moment of first human action. Pickup is creation to first review activity. Review is first review activity to merge. Report both by contribution type.
+
+The measurement gap is part of the story. 44.7% of organizations do not formally measure AI's impact at all, while 76.1% of leaders report productivity gains based on adoption signals rather than delivery data. A rising adoption line and a flat delivery line can coexist for a long time when nobody separates the phases. Where a team has moved the review phase specifically, the numbers look different, and it is worth reading a case where the review step itself got faster, like [how Meta cut pull request review time with AI](https://agentwrotethis.dev/blog/how-meta-cut-pull-request-review-time-with-ai/). That is a review-phase result, and it does not address the pickup gap this dataset measures.
+
+## What the tools actually change
+
+If you are buying a reviewer to move these numbers, know which phase the tool touches and how it meters work. A review tool shortens the review phase once someone picks the change up. It does not assign the change, so it does not move pickup time unless it also routes work.
+
+| Tool | Phase it can move | Documented metering unit | What it does not change |
+| --- | --- | --- | --- |
+| CodeRabbit | Review phase | Review events per developer per rolling hour, with the push as the unit: three commits pushed together spend 1 event, the same three pushed one at a time spend 3, and a web-UI file edit or an Update branch click spends 1 each | Pickup time; the change still needs an owner |
+| Greptile | Review phase | Prepaid credits at $1 each, shared across the organization: Base review 1, Plus 3, Apex 10, TREX run 3 extra, and reviews pause when the balance hits zero | Pickup time; credits meter the review, not the routing |
+| Kodus | Review phase | Unlimited reviews on every plan, run on your own provider key, with $10 per active developer per month on Teams and a free self-hosted or cloud Community plan | Pickup time, unless routing is configured; the only documented hard limit is no pull requests over 2,000 changed files |
+
+Those metering units come from each vendor's own documentation, and they matter because agent volume changes what a review costs. When a coding agent pushes three times to the same branch, the push-based unit on CodeRabbit charges three events for one logical change. On Greptile, each agent review draws prepaid credits. On Kodus, the review count does not move with volume, and the cost tracks the model tokens you pay your provider. The [throughput ceiling that pricing pages leave out](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) is the same problem stated from the buyer's side.
+
+LinearB's own price for the tooling behind this report is not published on the source page, so that figure is unknown here rather than estimated.
+
+## The levers, in the order the data supports
+
+Fix ownership first, because it is free and it addresses the larger term. Decide which class of change an agent may open without a named owner, and give every agent pull request an owner at creation. Then look at what the agent is pointed at, since backlog work fills the queue with changes nobody was waiting for. Only then spend on review speed, because review is the smaller term in the measured split.
+
+One caution on the numbers. Everything here is correlational and drawn from one vendor's dataset, so treat the direction as the useful part and the exact hours as provisional. Recompute pickup and review on your own pull requests by contribution type before you commit budget to either phase, and re-check the vendor metering pages when you do, because the units move with plan changes.
