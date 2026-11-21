@@ -1,0 +1,97 @@
+---
+title: "How to read an AI code review benchmark before you quote it"
+description: "Three public AI code review benchmarks publish their methods and still disagree. What each one measures, which labeler sets its ceiling, and how agent-authored changes change the number."
+pubDate: 2026-11-21
+category: "comparison"
+tags: ["aicodereview", "codereview", "benchmarks", "evaluation"]
+faq:
+  - q: "Which of these AI code review benchmarks is the most independent?"
+    a: "Martian's Code Review Bench has the strongest independence claim: an MIT-licensed repository, a public methodology, and a stated position that its business does not depend on a particular tool winning. MacroscopeBench is published by a vendor whose tool appears in the tool-level run, which its own page states. ReviewBench is open source and reproducible. Independence and reproducibility are different properties, and the second is easier to verify."
+  - q: "Do any AI code review benchmarks measure cost or review time?"
+    a: "MacroscopeBench reports a cost and a duration per model configuration. ReviewBench reports review duration. None of them reports the cost of the human review that follows, the wait before a change is picked up, or what happens when a tool's review allowance is exhausted. Those come from vendor documentation and from telemetry datasets."
+  - q: "Can I run these benchmarks against my own repository?"
+    a: "ReviewBench publishes its corpus, schema, and code under MIT, and Martian publishes its harness and repository under MIT, so both can be extended to your own pull requests. MacroscopeBench publishes a leaderboard and a methodology page; whether the runner can be pointed at your own commits is unknown from the pages it publishes."
+---
+
+Three public benchmarks now score AI code review against a published method, and they disagree about who wins because they ask different questions. MacroscopeBench asks whether a model catches a known bug. Martian's Code Review Bench asks whether developers acted on the comment. ReviewBench asks whether a finding would clear a senior reviewer's bar, applying written guidelines through a classifier. A recall percentage means something different in each case, and the gap between them widens once agents write most of the code under review.
+
+## Three public benchmarks, three questions
+
+MacroscopeBench, described on [Macroscope's AI code review benchmark page](https://macroscope.com/content/ai-code-review-benchmark-best-models), runs on more than 12,000 validated bugs drawn from more than 1,500 public repositories across 14 languages. Each model reviews a real commit diff without being told whether a bug exists, and two independent LLM judges score known-bug recall and overall precision. Every configuration is run three times and the reported metric is the mean of the three, on the grounds that one run of a nondeterministic system is an anecdote. The score is the harmonic mean of recall and precision, so a model cannot climb it by commenting on everything it can think of.
+
+The page opens by naming the problem it exists to avoid: "Almost every AI code review benchmark you can find in 2026 was published by a vendor who won it." Macroscope built this one and its own reviewer is why the benchmark exists, which the page states plainly, along with advice to read the methodology before the ranking and to check an independent benchmark for a second opinion. On the current all-bug leaderboard, GPT-6 Astra at max effort holds the top score (78.0) and the highest precision (91.7%), GLM 5.3 at max effort is close behind on score (77.4) at roughly half the cost, and DeepSeek V4.1 Flash has the highest recall (83.1%) with the lowest precision among the leaders (63.5%).
+
+One distinction matters before you quote any of that. MacroscopeBench scores models, not products. The tool-level numbers come from a separate, smaller run.
+
+Martian's [Code Review Bench](https://codereview.withmartian.com/) takes the behavioral route. Its headline metric is an online tracker that finds merged pull requests where tracked bots left reviews, then asks whether the developer changed code afterward. The [published methodology](https://github.com/withmartian/code-review-benchmark/blob/main/methodology/full.md) is open and the repository is MIT licensed. It reports the share of comments acted on, the count of comments acted on, and an F-beta that balances the two. An offline companion set of 50 hard-to-find bugs runs through a standardized harness, and the methodology describes the online number as the headline until the offline one is validated against it.
+
+ReviewBench takes the third route. Its [methodology page](https://review-bench.ai/methodology/) describes a corpus of 219 pull requests, with 25 of them published as a test subset, and labels each finding as a true or false positive using human-authored guidelines plus a Claude Sonnet 5 classifier. It reports four numbers: grounded precision and recall, which check a finding against the labeled corpus, and augmented precision and recall, which let the classifier judge findings the corpus does not contain. It also reports how long an agent took to deliver its review, and the corpus and code are open in the [ReviewBench repository](https://github.com/review-bench/ReviewBench).
+
+## The labeler decides what the number means
+
+Three labelers are in play here: a known bug, a developer's action, and a written guideline applied by a classifier. Each one has a failure mode, and each failure is documented by the benchmark that carries it.
+
+A golden set caps at human performance. Martian's methodology states it directly. If a tool finds a real bug the human annotators missed, the finding is scored as a false positive. That is a structural ceiling on recall for any tool that reads a diff better than the people who built the set, and it is the kind of thing a vendor benchmark has little reason to publish.
+
+Behavioral scoring cannot run counterfactuals. The same methodology lists what the online benchmark cannot do: two tools cannot be compared on the same repository, because installing one changes what the other sees, and the online number mixes the model with the harness around it, so a mediocre model with good context gathering can beat a better model with poor integration. It also cannot score a tool that has not been deployed publicly, and adoption correlates with repository characteristics, which makes direct tool-to-tool comparison unreliable.
+
+Classifier scoring depends on the classifier reproducing human judgment. ReviewBench treats that as a measurable property rather than an assumption, and keeps the metrics that lean on the classifier separate from the ones checked against the corpus.
+
+None of this makes the numbers useless. It means a precision figure without a named labeler is a claim, and the same tool can look strong or weak depending on which of the three you read.
+
+## What changes when agents write most of the code
+
+Two of the three benchmarks have to make a decision about agent-authored changes, and both decisions are visible in their methods.
+
+Martian's online benchmark excludes pull requests authored by bots by default, on the grounds that the response it would otherwise measure comes from another bot, and it excludes self-reviews too. That is honest about what the number is. It also means the sample thins as agent-authored pull requests grow as a share of a repository's activity. The metric describes how humans respond to a bot's comments, which is a different quantity from how one agent responds to another agent's comments, and the second is what a heavily automated repository produces.
+
+ReviewBench labels each finding with a scope: introduced by the pull request, exacerbated by it, pre-existing, or unrelated. Attribution gets harder as diffs get larger, which is the regime agent work produces, and [how much of a large pull request a reviewer can even read](https://agentwrotethis.dev/blog/what-an-ai-reviewer-can-read-on-a-large-pull-request/) is a separate limit from how many bugs it catches.
+
+Macroscope's earlier tool run shows how fast a tool ranking goes stale. The [2025 benchmark](https://macroscope.com/content/ai-code-review-benchmark-2025) tested 118 runtime bugs from 45 repositories across 8 languages and reported Macroscope at 48.31%, CodeRabbit at 45.76%, Cursor Bugbot at 42.37%, Greptile at 23.61% on the 72 bugs it was evaluated against, and Graphite Diamond at 18.26%. Comment volume per pull request in the same run ranged from 0.91 for Cursor Bugbot to 10.84 for CodeRabbit, which is the part a team feels on a Monday. Macroscope's own page notes that Graphite's docs now describe Graphite Agent while that run tested Diamond, and that Cursor announced an agreement to acquire Graphite on December 19, 2025. A ranking from one quarter describes the products of that quarter.
+
+The leaderboard arithmetic also shows the trade a team actually makes. The highest-recall configuration finds the most known bugs and posts the most noise: 83.1% recall, 63.5% precision, and 1.27 useful comments for every noisy one, at $0.75 per review in the benchmark run. The highest-precision configuration misses more and stays quiet: 67.8% recall, 91.7% precision, 6.26 to 1, at $7.87 per review. Effort level moves the score about as much as model choice does in at least one case, with Claude Opus 5 going from 59.4 at low effort to 69.9 at high effort, which is a wider swing than the gap between several different vendors on the same leaderboard.
+
+A benchmark with a narrower question can still be worth reading. [The security review benchmark from earlier this month](https://agentwrotethis.dev/blog/right-file-wrong-mechanism-what-ai-security-review-misses/) measured one mechanism across 265 tasks built from real vulnerability commits, reported recall between 32.5% and 78.1% depending on the setup, and diagnosed that 68% of misses named the wrong mechanism. That number is actionable because the task set and the question are both stated.
+
+## What none of the three measures
+
+Every figure above describes the quality of findings. None of them tells you what happens when a reviewer's allowance runs out at 3pm on a Friday, and that behavior is documented per tool rather than benchmarked.
+
+| Tool | Documented unit | What happens at the limit |
+| --- | --- | --- |
+| CodeRabbit | Review events per developer, counted per push rather than per commit | Refill rate falls from 5 per hour to 1 at 60 or more reviews in 7 days on Essentials, with similar bands on Team and Advanced |
+| Greptile | Prepaid credits, $1 each, shared across the organization | Reviews pause at a zero balance |
+| Cursor Bugbot | Per seat, with a cap on reviews of bot-authored pull requests, per team | Runs above the cap are skipped, and skipped runs record no usage |
+| Kodus | Per active developer plus tokens bought on your own key | Reviews are unlimited on every plan, and pull requests above 2,000 changed files are not reviewed |
+
+[Which limit binds first](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) works through that arithmetic for a queue that keeps growing, and [how each tool meters agent volume](https://agentwrotethis.dev/blog/greptile-alternatives-how-each-tool-meters-agent-volume/) is the longer version with the vendor pages linked.
+
+The wait before review starts sits in the same category. LinearB's [2026 software engineering benchmarks report](https://linearb.io/library/ai-in-software-development), built from more than 8.1 million pull requests, puts agentic pull requests at 17.6 hours at the 75th percentile before anyone picks them up, against 6.4 hours in review. A reviewer that catches more bugs does not move the first number, and no leaderboard above reports it.
+
+## What to check before you quote a benchmark
+
+Four things, in this order.
+
+The corpus. How many changes, from which repositories, and is it public. More than 12,000 bugs across 1,500 repositories and 219 pull requests are both defensible samples for different questions. A page that does not state its sample is not yet evidence.
+
+The labeler. A known bug, a developer action, or a classifier applying written guidelines. Each one sets a ceiling somewhere, and the ceiling is the thing that decides whether a high score is impressive.
+
+Whether agent-authored changes are in the sample. Martian excludes them by default. A golden-set benchmark may include them without saying so, which changes what the score describes for a team whose queue is mostly agent output.
+
+Whether the leaderboard is models or products. A model score is not a tool score, and a product score from one quarter describes that quarter's product, including any acquisition or rewrite that happened since.
+
+If a vendor page gives a recall percentage with no corpus, no labeler, and no runner, treat it as a claim. The three benchmarks above publish their methods, and Macroscope names the conflict of interest in its own ranking, which is more than most comparison pages bother with.
+
+## FAQ
+
+**Which of these benchmarks is the most independent?**
+
+Martian's has the strongest independence claim: an MIT-licensed repository, a public methodology, and a stated position that its business does not depend on a particular tool winning. Macroscope's benchmark is published by a vendor whose tool appears in the tool-level run, which its own page says. ReviewBench is open source and reproducible. Independence and reproducibility are different properties, and the second one is easier to verify.
+
+**Do any of them measure cost or review time?**
+
+MacroscopeBench reports a cost and a duration per model configuration. ReviewBench reports review duration. Neither reports the cost of the human review that follows, the wait before a change is picked up, or what happens when a tool's allowance is exhausted. Those come from vendor documentation and from telemetry datasets, and they are the numbers a budget depends on.
+
+**Can I run any of these against my own repository?**
+
+ReviewBench publishes its corpus, its schema, and its code under MIT, and Martian publishes its harness and repository under MIT, so both can be extended to your own pull requests. MacroscopeBench publishes a leaderboard and a methodology page; whether the runner can be pointed at your own commits is unknown from the pages it publishes.
