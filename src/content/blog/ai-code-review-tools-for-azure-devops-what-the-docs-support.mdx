@@ -1,0 +1,72 @@
+---
+title: "AI code review tools for Azure DevOps: what the docs support"
+description: "Per-vendor documentation of Azure DevOps support for Copilot, CodeRabbit, Qodo, Greptile and Kodus, including where each vendor's own pages disagree."
+pubDate: 2026-11-23
+category: "comparison"
+tags: ["azuredevops", "aicodereview", "codereview", "copilot"]
+faq:
+  - q: "Does Greptile support Azure DevOps?"
+    a: "Greptile's code providers page lists GitHub Cloud, GitLab.com, Bitbucket Cloud, GitHub Enterprise Server, GitHub Enterprise Cloud with data residency, GitLab Self-Managed, Bitbucket Data Center, Gitea, Perforce and Cursor Origin in beta. Azure DevOps is not listed, so no Azure DevOps connection is documented."
+  - q: "Can GitHub Copilot code review run on Azure DevOps?"
+    a: "GitHub's availability list for Copilot code review includes Azure DevOps with no preview label. The public-preview notes on that page apply to cross-repository context and to passing suggestions to the Copilot cloud agent."
+  - q: "Does an AI review comment block a merge on Azure DevOps?"
+    a: "It depends on the tool's status check and your branch policy. Kodus documents its Kody Code Review check as passing with open suggestions and failing only when the review could not run, so a required check guarantees a review happened rather than blocking on findings."
+---
+
+Azure DevOps is the provider where AI code review tools differ most, and a good part of that difference sits in the vendors' own documentation rather than in their marketing. A tool that connects to GitHub.com with an app install may need a scoped personal access token, a project-level permission grant, and an administrator on both sides before it can post a single comment on Azure Repos. For one widely used reviewer, the connection is not documented at all.
+
+That makes Azure DevOps a useful test case. Instead of comparing review-quality claims, you can compare what each vendor says its product does on the provider your team actually uses. What follows is what the vendors document as of November 2026, the places where a vendor's own pages disagree, and the checks worth running before a pilot.
+
+## The provider changes the setup, not just the integration
+
+On GitHub, a review tool usually installs an app and receives events from it. Azure DevOps asks more of the customer. Kodus connects with a personal access token, and [its Azure DevOps token guide](https://docs.kodus.io/en/how_to_use/code_review/general_config/azure_devops_pat.md) lists the scopes that token has to carry: Code (read and write) to read repositories, post comments and create service hooks, plus Project and team, Analytics, Graph, Identity and User profile reads. Two details on that page are easy to miss. The token should be scoped to one organization rather than All accessible organizations, because Microsoft is retiring tokens scoped that broadly. Kody also creates one service hook subscription per pull request event per repository, so the token owner needs the Edit subscriptions permission on the project, which Project Administrators have.
+
+[CodeRabbit's Azure DevOps page](https://docs.coderabbit.ai/platforms/azure-devops.md) arrives at a similar place from the other direction. Setup is admin only, and it needs a CodeRabbit organization administrator who also holds Project Administrator or Project Collection Administrator in Azure DevOps. New organizations and new Enterprise SSO workspaces authenticate with a Microsoft Entra service principal, while existing personal access token setups keep their current flow. Write operations need Identity: Read (`vso.identity`) on top of the resource-specific write permissions, and the documented recommendation is adding the service principal to the Contributors group of every project CodeRabbit reviews. Client secrets expire, and the page is direct about the consequence: reviews stop until a new secret is entered.
+
+So the first practical question about an Azure DevOps integration is not whether it works. It is who in your organization can complete the setup and who owns the credential afterwards. Kodus documents the failure mode that follows from getting this wrong. A token with Code (read) but not Code (read and write) lets the tool read repositories and then fail to post anything, so reviews appear to run silently. The same page covers the scope check, the token owner's project permissions, and a Project Collection Administrators grant as a last-resort diagnostic, with a warning not to leave a service account in that group.
+
+## What each vendor documents for Azure DevOps
+
+Per-provider documentation is the part worth reading before a trial, the same way you would read a tool's host support before assuming a GitHub setup carries over to a different host. That is the pattern behind this comparison of [what each reviewer documents per git host](https://agentwrotethis.dev/blog/ai-code-review-by-git-host-what-each-tool-documents/), and it is what the table below narrows to Azure DevOps.
+
+| Tool | Azure DevOps connection | Review behavior on Azure DevOps | Documented constraint |
+| - | - | - | - |
+| GitHub Copilot code review | Listed in the feature's Availability section with no preview label | Reviews pull requests and offers suggested fixes | The page's public-preview notes sit on cross-repository context and on passing suggestions to the cloud agent, not on Azure DevOps |
+| CodeRabbit | Personal access token, or a Microsoft Entra service principal for new organizations | Automated reviews, AI suggestions, one-click fixes, `@coderabbitai` in comments | CodeRabbit Explain artifacts are read-only on Azure DevOps |
+| Qodo | Listed for multi-tenant, single-tenant and on-premises installs | Review agents publish feedback to the pull request | The deployment-model table marks Azure DevOps on-premises as unavailable |
+| Kodus | Connect via token with a scoped personal access token | Kody posts review comments; optional Request Changes on critical findings; automatic approval never merges | One service hook subscription per pull request event per repository; the Git Issues plugin cannot be installed when the code provider is Azure Repos |
+| Greptile | No Azure DevOps provider listed | Not documented | Provider list covers GitHub, GitLab, Bitbucket, Gitea, Perforce and Cursor Origin |
+
+Greptile is the cleanest absence. [Its code providers page](https://www.greptile.com/docs/integrations/code-providers.md) enumerates GitHub Cloud, GitLab.com, Bitbucket Cloud, GitHub Enterprise Server, GitHub Enterprise Cloud with data residency, GitLab Self-Managed, Bitbucket Data Center, Gitea, Perforce and Cursor Origin in beta. Azure DevOps is not among them, so a team on Azure Repos has nothing to evaluate there. Whether that is a roadmap gap or a deliberate decision is unknown from the documentation.
+
+Copilot's entry is worth reading closely for a different reason. [GitHub's availability list](https://docs.github.com/en/copilot/concepts/agents/code-review) includes Azure DevOps with no preview label, while the preview notes on the same page sit on cross-repository context and on passing suggestions to the Copilot cloud agent. The billing section is scoped to GitHub's own automatic review flow: AI credits are attributed to the pull request author by default, a manual request is attributed to the requester, and for pull requests authored by Copilot cloud agent usage goes to the human co-author or, failing that, the organization. GitHub does not break those attribution rules out per host, so what a review costs on Azure DevOps specifically is unknown from that page. Estimated consumption for a single review is documented at Lite $0.05 to $1 (average $0.25), Balanced $0.25 to $5 (average $1.50) and Max $1.50 to $25 (average $10), excluding GitHub Actions minutes. Adaptive picks an effort level within a configured maximum, and the same page states Copilot code review is available for all paid Copilot plans.
+
+## Where a vendor's own pages disagree
+
+Two of these need a second page before you can state the behavior confidently, and in both cases the disagreement is inside one vendor's documentation.
+
+Qodo's [deployment-model table](https://docs.qodo.ai/install-qodo/deployment-model-support.md) lists Azure DevOps Cloud with multi-tenant and single-tenant support and no on-premises option. Its [installation matrix](https://docs.qodo.ai/install-qodo/install.md) links an on-premises Azure DevOps install. Both pages are live, and they cannot both be read as the whole answer. Cite the conflict rather than picking a winner, and confirm with the vendor before planning a self-hosted or air-gapped rollout. Self-hosted review carries its own cost profile beyond the license, which is [a separate decision from provider support](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/) and worth pricing on its own terms.
+
+CodeRabbit's two Azure DevOps pages describe different scopes. The platform page covers review comments, one-click fixes and the bot, while [the provider-support matrix](https://docs.coderabbit.ai/change-stack/provider-support.md) covers CodeRabbit Explain, where Azure DevOps artifacts are read-only: no inline comments, no draft reviews, no submitted reviews, no committable suggestions, no chat, and no freshness comparison against the live head. A reader who finds only one of those pages will draw the wrong conclusion about what the tool can do on Azure DevOps.
+
+## What to verify before a pilot
+
+The checks below are cheap, and each one has already disqualified something in the pages above.
+
+1. Read the vendor's own provider page, not a roundup. The pages that rank for a query like best AI code review tools for Azure DevOps repos are mostly general DevOps tool lists, and they do not carry per-provider setup or permission details.
+2. Identify which role completes setup and which admin group it needs, on both sides of the integration.
+3. Trace what happens when the credential expires or loses a scope, and who gets paged.
+4. Ask which capabilities are read-only on Azure DevOps and which write back to the pull request.
+5. Check the merge gate separately from the review, because a comment and a status check are not the same thing.
+
+## The merge gate is a separate question from the review
+
+[Kodus's policy page](https://docs.kodus.io/en/how_to_use/code_review/policy.md) is explicit that a review comment does not block a merge by default. The Kody Code Review check reports that a review ran: it passes with open suggestions and fails only when the review itself could not run, so a required check guarantees a review happened rather than blocking on findings. Request Changes is optional and fires only on critical findings, and automatic approval never merges. CodeRabbit's approval policies and Copilot's default review state sit in the same category of question, which is whether an approval or a check from the tool satisfies your branch policy. That mapping is worth writing down before anyone configures a required check.
+
+## What this means for a tool choice
+
+The Azure DevOps surface is where a shortlist gets shorter. If your organization cannot spare an administrator for an Entra app registration, the service-principal path in CodeRabbit is out and the token path is what remains. If you need self-hosted or air-gapped deployment, Qodo's own pages need clarifying first. If you are on Azure Repos and want to evaluate a reviewer this week, Greptile does not document a connection to test.
+
+Kodus documents the token path with the scope list and the service-hook permission requirement in the open. [Its plans page](https://docs.kodus.io/en/how_to_use/pricing.md) states that pull request reviews and workspace members are unlimited on every plan, with model cost on your own key, and that Kody skips a review when a pull request carries more than 2,000 reviewable files. The Free plan caps active Kody Rules at 10 and installed plugins at 3 at a time, and [the free tier deserves its own reading](https://agentwrotethis.dev/blog/free-ai-code-review-what-the-free-tier-actually-covers/) before you assume it covers a team.
+
+The work that decides whether any of this fits is a setup checklist rather than a feature list. Pick the two tools that clear the provider and permission checks, write down which credential each one uses and who owns it, then run the pilot on the repositories with the highest review load. The tool that cannot be set up by the people you have is not a candidate, however its reviews read in a demo.
