@@ -1,0 +1,98 @@
+---
+title: "Kodus vs CodeRabbit: what each vendor documents"
+description: "A primary-source comparison of Kodus and CodeRabbit. How each meters reviews, which host and plan gate the approval path, and what happens when agent volume rises."
+pubDate: 2026-11-25
+category: "comparison"
+tags: ["aicodereview", "codereview", "kodus", "coderabbit"]
+faq:
+  - q: "Does Kodus really have no review limit?"
+    a: "Its plans page states that pull request reviews and workspace members are unlimited on every plan, and that plans differ by features rather than review count. The limits that do exist are feature caps (10 active Kody Rules and 3 plugins at a time on Free), the 2,000-file review ceiling, and the token cost on your own AI key."
+  - q: "Does CodeRabbit's approval satisfy a branch protection rule?"
+    a: "It counts as one approving review and nothing else. With one required approval it can be the only one, which is why CodeRabbit documents the author-shortcut setting. With two required approvals it cannot be mandatory, because two people can always supply them."
+  - q: "What happens when a CodeRabbit developer runs out of reviews?"
+    a: "The allowance is a rolling refill rather than a hard quota. Additional reviews become available as earlier ones age out, and the refill rate itself drops under the fair usage bands if recent activity stays high. On Essentials, Team, and Advanced, an eligible over-limit review can continue as usage-based billing if the add-on is enabled."
+  - q: "Can I self-host either product?"
+    a: "CodeRabbit lists self-hosting on its Enterprise plan, with pricing and terms set by an account team. Kodus documents a self-hosted Enterprise instance activated with a license key; without a key it runs Community Edition, which carries the same limits as the Free plan."
+  - q: "Do either of these numbers come from an independent test?"
+    a: "No. Every figure on this page is from CodeRabbit's or Kodus's own documentation, and neither vendor publishes an independent measurement of review quality."
+---
+
+CodeRabbit and Kodus both review pull requests, and they disagree about the unit they sell. CodeRabbit sells review events, counted per developer and refilled on a rolling allowance that tightens as recent activity rises. Kodus sells developer licenses and leaves the review count unlimited on every plan, with the token cost passed to your own AI key. That difference decides most of the practical comparisons between them, including what happens when agents open most of the pull requests and the queue grows faster than the review capacity behind it.
+
+Everything below comes from the two vendors' own documentation. Where a page does not answer a question, this says so instead of guessing.
+
+## How each one meters a review
+
+CodeRabbit's [plans and pricing page](https://docs.coderabbit.ai/management/plans.md) states its review limits per developer, per hour, as rolling allowances: Free 1 (summary only), Essentials 5, Team 8, Advanced 10, Enterprise 12. The same page caps files per review at 3 on Free and 12 on Enterprise, counted after path filters. Its [rate limits page](https://docs.coderabbit.ai/management/rate-limits.md) explains what draws down that allowance, and the answer is pushes rather than commits. Three commits pushed together produce one review event. The same three commits pushed one at a time produce three. Editing a file through the GitHub web UI counts as a commit and a push in one action, so each typo fix in the browser spends a review. The Update branch and Resolve conflicts buttons behave the same way, because both write a commit to the branch.
+
+Kodus meters differently. Its [plans and licenses page](https://docs.kodus.io/en/how_to_use/pricing.md) states that pull request reviews and workspace members are unlimited on every plan, and that plans differ by features rather than by how many reviews Kody can run. What a paid plan buys is developer licenses, which decide whose pull requests get reviewed. Licenses count developers in your Git organization. Workspace members, the people who configure the tool, sit outside that count and are unlimited. With auto-assignment on, a developer's first pull request is reviewed without a seat, and a seat is assigned when they open another one if one is free.
+
+The consequence for a budget is direct. A repository where agents push six times to a branch before review is finished spends six CodeRabbit review events for one change and one Kodus developer license. A repository where every change is one clean push spends one event and one license. Neither vendor is cheaper in the abstract, and the metering unit decides which one is cheaper for your push pattern.
+
+Kodus moves the cost rather than removing it. Free and Teams plans run reviews on your own AI key, and none is connected until you add one. Enterprise can run the models under your agreement instead. So the unlimited review count arrives with a token bill from your provider, which is a different number from a subscription line and one that scales with diff size rather than with headcount.
+
+## What happens when agent volume rises
+
+Both products have published behavior for the case where activity stays high, and the two behaviors are not symmetric.
+
+CodeRabbit's fair usage policy reduces the refill rate as recent activity climbs. On Essentials the page documents 5 reviews per hour at 0 to 29 reviews in the last 7 days, falling to 2 per hour at 50 to 59, and 1 per hour with one review at a time at 60 or more. Team runs 8 per hour up to 39 reviews, then 6, 4, 2, and 1 at 70 or more. Advanced runs 10 per hour up to 49, then 8, 4, 2, and 1 at 80 or more. The window can cover 24 hours or 7 days, and reducing activity restores the faster rate over time. A review that continues past the allowance can be billed as usage instead, on plans where the add-on is enabled.
+
+That is a documented throttle, and it is worth reading as one. A team whose agent fleet pushes to branches all afternoon is the exact pattern the bands are written for.
+
+Kodus has no review-count throttle to document, because the count is not the metered resource. Its [code review flow page](https://docs.kodus.io/en/how_to_use/code_review/flow.md) lists the reasons Kody skips a review, and the one tied to size is a file ceiling: a change with more than 2,000 reviewable files, counting files that only a custom agent reviews, is skipped and the page's advice is to split the pull request. CodeRabbit's file ceiling is smaller and varies by plan, at 3 files on Free and 12 on Enterprise, with reviews above 300 files excluded from usage pricing.
+
+So the two failure modes under load differ in kind. CodeRabbit gets slower as a developer's recent volume rises. Kodus declines oversized changes and lets the token bill absorb the rest. If your queue is many small agent pull requests, the first limit binds. If it is a few enormous generated diffs, the second one does.
+
+## Approvals: which host, which plan, who counts
+
+This is where the two products diverge more than their pricing pages suggest, and where the documentation is unusually specific.
+
+CodeRabbit's [approval policy guide](https://docs.coderabbit.ai/pr-reviews/approval-policies.md) carries two scope labels at the top of the page: GitHub and GitHub Enterprise for the host, and Essentials and above for the plan. The guide also separates three decisions that teams tend to collapse into one: whether CodeRabbit adds an approving review, decided by Automatic Approvals and its risk limits; how many approvals the pull request needs and from whom, decided by your GitHub branch rules; and whether CodeRabbit merges it, decided by Triage rules. The page is blunt about the middle layer. A required approval count does not say who must approve, and two required approvals can always come from two people, so these policies never make CodeRabbit's approval mandatory. To require a specific team you add code owners and turn on Require review from Code Owners.
+
+Kodus's [auto-approve page](https://docs.kodus.io/en/how_to_use/code_review/configs/auto_approve.md) splits the same problem along different lines. Basic automatic approval is available on every plan, and Kody submits a review approval to your Git provider without ever merging the pull request. Named approval policies, where you write conditions such as a path pattern, a PR author, a changed-line limit, or an instruction the review model has to confirm, are beta on Kodus Cloud for Teams and Enterprise, and require an Enterprise license with a beta flag on self-hosted. A policy with no conditions covers all clean PRs, and new policies start switched off, which is a sensible default given that adding a policy does not by itself turn on automatic approval.
+
+Three requirements apply to every Kodus policy and are worth knowing before you write one. A review that did not finish clean cannot approve. If risk assessment is on and it finds risk or cannot complete, every policy is blocked with no per-policy bypass. Files on the Human approval list always block automatic approval regardless of what the policies say. And if the PR head or base moved after the reviewed snapshot, the clean result is not reused.
+
+One asymmetry is worth naming. CodeRabbit's approval path is gated on GitHub and GitHub Enterprise plus a paid plan. Kodus documents approval conditions such as PR labels as unavailable on Bitbucket and Azure Repos, and documents that Azure DevOps and Bitbucket have no reaction API, so Kody posts its status emoji as a comment there instead of a reaction. If your host is Azure DevOps, [what each vendor's docs support on that host](https://agentwrotethis.dev/blog/ai-code-review-tools-for-azure-devops-what-the-docs-support/) is the page that matters more than this one.
+
+## Where the two products sit side by side
+
+| | CodeRabbit | Kodus |
+| - | - | - |
+| Unit sold | Review events per developer, rolling hourly allowance | Developer licenses; reviews unlimited on every plan |
+| Documented review limits | Free 1 (summary only), Essentials 5, Team 8, Advanced 10, Enterprise 12 per developer per hour | No review count limit |
+| What consumes the allowance | Pushes, not commits; web-UI edits, Update branch, Resolve conflicts, force-push each count | Not applicable |
+| Behavior under sustained volume | Adaptive refill bands, down to 1 review per hour with one at a time | No review-count throttle; oversized changes are skipped |
+| File ceiling per review | 3 to 12 files by plan; above 300 files excluded from usage pricing | Above 2,000 reviewable files, review is skipped |
+| Token cost | Included in the plan, with a usage-based add-on for overages | Your own AI key on Free and Teams; Enterprise can run models under agreement |
+| Approval path scope | GitHub and GitHub Enterprise, Essentials plan and above | Basic approval on every plan; named policies beta on Teams and Enterprise |
+| Merging | Triage rules can merge, on Team and above | Kody never merges |
+| Host-specific gaps | Approval policy page scoped to GitHub and GHE | PR label conditions unavailable on Bitbucket and Azure Repos; no reaction API on Azure DevOps or Bitbucket |
+| Self-hosting | Enterprise plan; terms set with the account team | Enterprise license key; without a key the instance runs Community Edition with Free-tier limits |
+
+## Which one fits which team
+
+Read the metering unit first, because it predicts the bill more reliably than any feature list. A team whose agents push repeatedly to long-lived branches pays CodeRabbit per push and hits the adaptive bands first. A team that wants a fixed per-developer line and is willing to own its token spend fits Kodus's model better, and should price the key before the license.
+
+Read the host second. If you are on GitHub with a paid plan, both vendors document a full approval path. If you are on Azure DevOps or Bitbucket, CodeRabbit's approval policy guide does not cover that ground, and Kodus documents specific gaps of its own on the same hosts. Neither product is host-neutral, and the pages that say so are the ones to quote.
+
+Read the merge behavior third, since it is a policy decision rather than a feature. CodeRabbit can merge through Triage rules. Kodus never merges, which keeps the last action with a person or with your existing automation. Teams that want the reviewer to stop at an approval tend to care about that line more than they expect to.
+
+The honest summary is that CodeRabbit is the more feature-complete product across a large surface, and its documentation says so with unusually precise rate arithmetic. Kodus is the narrower product that charges per developer and leaves review volume unmetered, which is a better fit for a repository where agents generate the volume and nobody can forecast the push count. Both numbers come from vendor documentation, and neither vendor publishes an independent measurement of review quality, so treat a quality claim from either as a claim until you read [a benchmark with a stated method](https://agentwrotethis.dev/blog/how-to-read-an-ai-code-review-benchmark-before-you-quote-it/).
+
+## FAQ
+
+**Does Kodus really have no review limit?**
+Its plans page states that pull request reviews and workspace members are unlimited on every plan, and that plans differ by features rather than review count. The limits that do exist are feature caps (10 active Kody Rules and 3 plugins at a time on Free), the 2,000-file review ceiling, and the token cost on your own AI key.
+
+**Does CodeRabbit's approval satisfy a branch protection rule?**
+It counts as one approving review and nothing else. With one required approval it can be the only one, which is why CodeRabbit documents the author-shortcut setting. With two required approvals it cannot be mandatory, because two people can always supply them. [Which reviewer approvals satisfy your merge requirement](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) works through that arithmetic.
+
+**What happens when a CodeRabbit developer runs out of reviews?**
+The allowance is a rolling refill rather than a hard quota. Additional reviews become available as earlier ones age out, and the refill rate itself drops under the fair usage bands if recent activity stays high. On Essentials, Team, and Advanced, an eligible over-limit review can continue as usage-based billing if the add-on is enabled.
+
+**Can I self-host either product?**
+CodeRabbit lists self-hosting on its Enterprise plan, with pricing and terms set by an account team. Kodus documents a self-hosted Enterprise instance activated with a license key; without a key it runs Community Edition, which carries the same limits as the Free plan.
+
+**Do either of these numbers come from an independent test?**
+No. Every figure on this page is from CodeRabbit's or Kodus's own documentation. For what happens to review throughput when a queue keeps growing, [the arithmetic pricing pages leave out](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) is the follow-on.
