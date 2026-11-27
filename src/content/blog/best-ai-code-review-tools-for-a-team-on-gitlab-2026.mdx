@@ -1,0 +1,75 @@
+---
+title: "Best AI code review tools for a team on GitLab (2026)"
+description: "GitLab now ships two first-party reviewers and gates the rest behind tiers and tokens. What CodeRabbit, Qodo, Greptile, Cursor, Copilot and Kodus each document for GitLab."
+pubDate: 2026-11-27
+category: "best-of"
+tags: ["gitlab", "aicodereview", "codereview", "pullrequests"]
+faq:
+  - q: "Does GitHub Copilot code review work on GitLab?"
+    a: "No. GitHub's availability list for Copilot code review names GitHub.com, the GitHub CLI, GitHub Mobile, VS Code, Visual Studio, Xcode, JetBrains IDEs, and Azure DevOps. GitLab is not on that list, and the page states the feature is available for all paid Copilot plans within those surfaces."
+  - q: "Can an AI reviewer block a merge on GitLab Free?"
+    a: "Not through required approvals. GitLab Free lets users with the Developer role approve merge requests, those approvals are optional, and they do not prevent merging without one. Required approvals and CODEOWNERS-based approval rules are Premium and Ultimate features. A reviewer can still post comments, and GitLab's own Code Review Flow can be run on Free with GitLab Credits, but the merge itself is not gated by an approval on Free."
+  - q: "Why does the Cursor GitLab integration need a paid GitLab plan?"
+    a: "Cursor's GitLab page states the integration requires a paid GitLab plan (Premium or Ultimate) because project access tokens, which the integration needs, are not available on GitLab Free. The same page documents that Cloud Agents commit as the bot user of the project access token Cursor creates, and that commits fall back to a Cursor agent email if that token is unavailable, which push rules requiring a GitLab user will reject."
+  - q: "What GitLab version does CodeRabbit need for self-managed GitLab?"
+    a: "GitLab 16.x and above, according to CodeRabbit's self-managed GitLab page, which states that 15.x may experience issues such as review comments not being posted or the sign-up process failing."
+---
+
+A team on GitLab asking which AI reviewer to buy gets an answer shaped by two things before the model matters: which GitLab tier the team is on, and how the tool is allowed to connect. GitLab itself now ships two different reviewers depending on your add-on, and the third-party tools each document a different GitLab path, with different minimum plans behind it.
+
+That makes a straight feature list close to useless. What follows is what each vendor's own documentation says about GitLab, and what those details decide for a team on GitLab.com versus a team running a self-managed instance.
+
+## GitLab ships two reviewers, and the add-on picks which one runs
+
+GitLab's documentation states plainly that depending on your add-on and group settings, GitLab runs one of two code review features. They are separate products with separate requirements, and a buyer who assumes there is one GitLab AI reviewer will be surprised at the trial.
+
+[Code Review Flow](https://docs.gitlab.com/user/duo_agent_platform/flows/foundational_flows/code_review/) is the agentic version, part of the GitLab Duo Agent Platform. It is listed on Free, Premium and Ultimate, available on GitLab.com, GitLab Self-Managed and GitLab Dedicated. It went generally available in GitLab 18.8, and became available on the Free tier on GitLab.com with GitLab Credits in 18.10. The operational detail that matters is that it runs as a CI/CD job, so it needs a runner carrying the `gitlab--duo` tag and an executor that supports Docker images, or GitLab hosted runners enabled for the project. It runs as a service account, which is what determines how its usage is billed.
+
+[GitLab Duo Code Review](https://docs.gitlab.com/user/gitlab_duo/code_review/) is the non-agentic version, and it is narrower: Premium and Ultimate, with the GitLab Duo Enterprise add-on. You trigger it with `/assign_reviewer @GitLabDuo` or by assigning Duo as a reviewer. Its documented behavior on large merge requests is worth reading before you evaluate review quality, because the fallback is not neutral. The first request sends the diffs plus the original contents of the changed files. If that fails, it retries without the original file contents, which reduces prompt size and also reduces the context the model has, and GitLab notes the comments may be less specific. If the retry fails too, you get a generic error. Reviews that do not finish inside the instance AI Gateway request timeout surface the same way.
+
+The billing side sits in a third place. [GitLab Credits](https://docs.gitlab.com/subscriptions/gitlab_credits/) are the usage currency for the Agent Platform and some non-agentic features. Included credits go to Premium and Ultimate users, are individual rather than shared, reset monthly, and do not roll over. The Free tier on GitLab.com can buy a monthly commitment pool as of 18.10, with on-demand usage capped at $25,000 per calendar month before it turns itself off. Premium and Ultimate users have a monthly commitment pool as well, and it is a shared pool that cannot be reserved for a subset of users.
+
+So the first question for a GitLab team is not which vendor to pick. It is whether the first-party reviewer you already have access to does enough, and that answer changes with your tier and your add-on.
+
+## The connection is the identity your reviews carry
+
+GitLab does not offer the one-click app install that GitHub does for most of these tools. A reviewer needs an identity, and how you create it decides what the review history looks like.
+
+CodeRabbit's [GitLab.com integration page](https://docs.coderabbit.ai/platforms/gitlab-com) recommends a dedicated user as a service account, added to the top-level group with at least Developer access, and that user's personal access token. Reviews are attributed to the owner of the token, so they appear to come from that account. The page also covers group access tokens, which create a bot user automatically and which GitLab restricts to Premium and Ultimate by default, and fine-grained personal access tokens, which are generally available in GitLab 19.2 and later on all tiers and grant only the scopes you select. A personal access token with no expiry date defaults to 365 days. Changing the review user later means removing the previous user from the projects and their webhooks, then reinstalling the app for each project.
+
+Kodus documents both routes in its [quickstart](https://docs.kodus.io/en/how_to_use/quickstart): GitLab connects by signing in through OAuth with the install button, or by token. The docs are explicit that the app path makes Kody post as its own bot, while in every other case reviews appear under the account that connected, meaning the token owner or the GitLab user who authorized OAuth. For a self-managed GitLab instance, Kodus connects with a token and your instance URL, and the docs ask you to allowlist Kodus's IP in your firewall first.
+
+Greptile's [code provider table](https://www.greptile.com/docs/integrations/code-providers) lists GitLab.com as an access token plus webhook, available on Greptile Cloud on all plans, and GitLab Self-Managed as a Greptile Enterprise feature you have to contact sales to enable. Qodo's [deployment matrix](https://docs.qodo.ai/install-qodo/deployment-model-support) lists GitLab Cloud as supporting multi-tenant, single-tenant and on-premises with air-gapped marked not applicable, and GitLab Self-Managed as supporting all four, air-gapped included.
+
+Cursor is the one that makes the tier explicit. Its [GitLab integration page](https://cursor.com/docs/integrations/gitlab) states the integration requires a paid GitLab plan, Premium or Ultimate, because project access tokens, which it needs, are not available on GitLab Free. The same page documents the failure mode: Cloud Agents commit as the bot user of the project access token Cursor creates per project, so their commits pass push rules requiring the commit author to be a GitLab user, and if that token is unavailable or the bot identity cannot be resolved, agents fall back to a Cursor agent email address that those push rules reject. On a GitLab Free team, Cursor's review and agent features are not on the table at all.
+
+## What each tool documents for GitLab
+
+| Tool | GitLab.com | Self-managed GitLab | Minimum GitLab plan | Merge-gating on GitLab |
+| - | - | - | - | - |
+| GitLab Code Review Flow | Yes, GA in 18.8 | Yes, Self-Managed and Dedicated | Free on GitLab.com with Credits from 18.10 | Platform approvals decide; runs as a CI/CD job |
+| GitLab Duo Code Review (non-agentic) | Yes | Yes | Premium or Ultimate plus Duo Enterprise | Platform approvals decide |
+| CodeRabbit | Yes, token plus webhook | Yes, GitLab 16.x and above; self-hosted deployment is an Enterprise option | Paid plan for PR reviews; Free is summarization only | Request-changes workflow submits a review state |
+| Kodus | Yes, OAuth app or token | Yes, token plus instance URL | Free tier exists, with up to 10 Kody Rules and 3 active plugins | Auto-approve yes; Request Changes is hidden when GitLab is the only connected platform |
+| Qodo | Yes | Yes, including air-gapped | Not stated on the deployment page | unknown |
+| Greptile | Yes, all plans | Enterprise only, contact sales | Enterprise access required for self-managed | unknown |
+| Cursor Bugbot | Yes | Yes, with PrivateLink or Cloudflare Tunnel for Enterprise | Premium or Ultimate | unknown |
+| GitHub Copilot code review | No, GitLab is not on the availability list | No | N/A | N/A |
+
+The blanks are not an oversight. Where a vendor's public page does not state whether its reviewer can submit a request-changes review on GitLab, writing a yes would be guessing, and this is exactly the field where a guess costs a team a merge gate it thought it had.
+
+## What this means for the tier you are actually on
+
+On GitLab Free, the set of tools that can gate a merge through required approvals is empty, because required approvals are a Premium and Ultimate feature. GitLab Free lets a user with the Developer role approve a merge request, those approvals are optional, and they do not prevent merging without one. A reviewer that cannot block a merge is an advisory system regardless of what its settings screen offers, which is the same distinction that decides the tool question on [GitHub, where the platform decides through trigger events and token scopes](https://agentwrotethis.dev/blog/ai-code-review-on-github-what-the-platform-decides-for-you). On Free, the first-party Code Review Flow is the path that does not require a paid subscription, and you pay in GitLab Credits instead.
+
+On GitLab Premium or Ultimate, the merge gate exists, and the question becomes which reviewer's approval or change request you want feeding it. GitLab Duo's change request blocks a merge the way a user's does, while its approval never counts toward required approvals. CodeRabbit submits a request-changes review and then approves once its open threads are resolved and no Pre-Merge Checks are failing, with GitLab-specific handling for blocking discussions. Kodus auto-approves on GitLab but hides its Request Changes switch when GitLab is the only connected platform, so on a GitLab-only setup Kody approves and comments without being able to request changes. Those are the details that decide whether an approval policy means anything, and they are all documented per tool rather than summarized anywhere.
+
+On self-managed GitLab, the field narrows. Greptile puts self-managed GitLab behind Enterprise access. CodeRabbit supports it from GitLab 16.x, needs an OAuth2 application with `api`, `read_user`, `email` and `openid` scopes, and its self-hosted deployment is an Enterprise option for customers with 500 or more seats. Kodus connects a self-managed instance by token and instance URL after you allowlist its IP. Qodo's matrix covers on-premises and air-gapped for GitLab Self-Managed. Cursor supports self-hosted GitLab with private networking options gated to Enterprise.
+
+If you are comparing these tools more broadly and want the same primary-source treatment across hosts, [the per-host breakdown of what each tool documents](https://agentwrotethis.dev/blog/ai-code-review-by-git-host-what-each-tool-documents/) covers GitHub, Bitbucket and Azure Repos the same way. And if you are evaluating review quality before you evaluate the connection, the method check matters more than the leaderboard: [how to read an AI code review benchmark](https://agentwrotethis.dev/blog/how-to-read-an-ai-code-review-benchmark-before-you-quote-it/) covers what a vendor number needs before it is worth quoting.
+
+## Three questions to settle before a GitLab trial
+
+Ask which GitLab tier the trial runs on, because several of these tools behave differently on Free and some are unavailable there. Ask how the reviewer authenticates and who owns that token, because on GitLab the review is attributed to the token owner, the default expiry is 365 days, and nobody owning that calendar item produces a reviewer that quietly stops posting. Then ask what the reviewer can do to the merge request state on your tier, since that is the difference between an advisory comment and something your approval rules can lean on.
+
+A trial that skips those three questions can pass on a Premium sandbox and fail on the Free project the team actually uses.
