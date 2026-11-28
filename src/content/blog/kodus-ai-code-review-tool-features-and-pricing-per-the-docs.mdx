@@ -1,0 +1,88 @@
+---
+title: "Kodus AI code review tool: features and pricing, per the docs"
+description: "What the Kodus docs and pricing page say each plan unlocks, how BYOK billing works, which limits bind first, and how the metering compares to CodeRabbit, Qodo and Greptile."
+pubDate: 2026-11-28
+category: "explainer"
+tags: ["aicodereview", "codereview", "kodus", "pricing"]
+---
+
+Kodus prices by developer and runs reviews on a model key you provide, and its own documentation states the design directly: "Plans differ by features, not by how many pull requests Kody can review." That line is the useful thing to know before comparing it to anything else, because most AI reviewers meter the review itself. Kodus meters features and file count. Free and Teams both allow unlimited pull requests on a key you connect, Teams costs $10 per developer per month (or $8 billed annually) for the features above the free tier, and Enterprise is quoted per account with SSO, audit logs and self-hosting.
+
+Everything below comes from the vendor's own pages: the [Kodus plans and licenses documentation](https://docs.kodus.io/en/how_to_use/pricing.md), the [review flow](https://docs.kodus.io/en/how_to_use/code_review/flow.md) and [review policy](https://docs.kodus.io/en/how_to_use/code_review/policy.md) pages, the [auto-approve reference](https://docs.kodus.io/en/how_to_use/code_review/configs/auto_approve.md), and the [pricing page](https://kodus.io/pricing). Where the docs leave a question open, that is marked unknown rather than filled in with a guess.
+
+## What each plan unlocks
+
+There are three plans plus a self-hosted default. Free runs on Kodus Cloud with your own key and nothing connected until you add one. Teams is Cloud, adds per-developer licenses and the Team features. Enterprise runs on Cloud or self-hosted with a license key. A self-hosted instance with no license key runs Community Edition, which carries the same limits as Free. Teams is a cloud plan, so there is no self-hosted Teams.
+
+The plan comparison is a feature table, not a volume table, and the docs publish it:
+
+| Feature | Free / Community | Teams | Enterprise |
+| - | - | - | - |
+| PR reviews and workspace members | Unlimited | Unlimited | Unlimited |
+| Kody Rules | Up to 10 active | No cap | No cap |
+| Global Rule Sources | No | No cap | No cap |
+| Plugins running at once | Up to 3 | No cap | No cap |
+| Heavy review mode (beta) | No | Yes | Yes |
+| Automatic approval without conditions | Yes | Yes | Yes |
+| Conditional approval (beta) | No | Yes | Yes |
+| Risk assessment (beta) | No | Yes | Yes |
+| Custom agents | No | Yes | Yes |
+| Linked repositories | No | Yes | Yes |
+| Cockpit and code hotspots (beta) | No | Yes | Yes |
+| SSO (SAML) | No | No | Yes |
+| Activity logs | No | No | Yes |
+
+Two details in that table matter more than the rest. Rules above the cap show as Locked and are skipped during reviews, and plugins above the cap are skipped too, so a Free workspace on a busy repository will silently run fewer checks than its configuration suggests. The docs say both become active again on a plan without the cap. The other detail is that a canceled, expired or payment-failed Cloud subscription falls back to the Free resource caps, which is the state most teams discover by surprise.
+
+## How the pricing works
+
+Kodus is bring-your-own-key on every plan, including Free. You connect a provider such as OpenAI, Anthropic, Google Gemini, or an OpenAI-compatible endpoint, and the provider bills you for tokens. Kodus charges for the platform and states on its pricing FAQ that it takes no markup on tokens. The same FAQ says Kodus does not train models on customer data and does not store source code, which is a claim from the vendor rather than something a buyer can verify from the outside.
+
+The pricing page carries a calculator that turns the two costs into one number. For a 30-developer team on Sonnet 4.5 it estimates $270 per month in model cost ($9 per developer) plus $300 in license ($10 per developer), for $570 total. On Gemini Flash the same team lands at $45 in model cost plus the same $300, for $345. That spread is the practical consequence of BYOK: the license line is fixed per developer and the model line moves by roughly an order of magnitude depending on which model you route. The page also notes the estimates depend on how teams use Kodus and may vary.
+
+A new Cloud workspace starts a 14-day trial with Teams features, and Kodus covers the first 5 pull request reviews so you can try it without a key. When those trial reviews run out before you connect one, the docs say Kody pauses reviews and, with status feedback on, comments on the pull request with a link to add a key. Connecting a key lifts the review limit on any plan, even after the 14 days end. There are discounts of 30 to 100 percent for startups, open source projects and teams in countries with weaker currencies, applied by request.
+
+## Which limits bind first
+
+The limit that binds on Kodus is file count, not review count. Kody skips a review when a pull request has more than 2,000 reviewable files, counting files that only a custom agent would review. The documented remedy is to split the pull request. For an agent that opens one large change rather than several small ones, that threshold is the thing to watch, and [which limit binds first on a growing queue](https://agentwrotethis.dev/blog/the-review-throughput-ceiling-that-pricing-pages-leave-out/) is the longer version of that arithmetic across vendors.
+
+The second limit is licensing. On a paid plan, a developer's pull requests are reviewed when that developer holds a license. Licenses count developers from your Git organization, and workspace members, the people who configure Kodus, are separate and unlimited. With auto-assign on, a developer's first pull request is reviewed without a seat, and a seat is assigned when they open another one if one is free. That matters for agent-heavy repositories, because a bot opening pull requests is not a licensed developer, and the docs list "User Not Licensed" as a skip reason with auto-assign as the fix.
+
+## What blocks a merge and what does not
+
+This is where the docs are unusually specific, and it is worth reading before you wire Kodus into branch protection. The **Kody Code Review** check, available when Kodus is installed as a GitHub App and on Forgejo, reports whether a review ran. It passes with open suggestions and fails only when the review itself could not run. A required check therefore guarantees that a review happened, and it does not block a merge on what the review found.
+
+Request changes on critical issues is the optional setting that can block. It is off by default, applies only to critical findings, and Kody withdraws the request once those findings are resolved. It is not available when GitLab is the only connected provider. Automatic PR approval is the other side of the same switchboard: Kody approves a clean pull request, or one where every comment it left is resolved, and it never merges. Approval policies, which decide which clean pull requests are eligible, are in beta on Cloud for Teams and Enterprise and need an Enterprise license plus a beta flag on self-hosted. Business Logic Validation posts a comment and writes no check and no status, so it never blocks a merge by itself. [Which reviewer approvals satisfy a merge requirement](https://agentwrotethis.dev/blog/which-ai-reviewer-approvals-satisfy-your-merge-requirement/) works through that distinction per platform.
+
+Status signalling differs by host, which is easy to miss. Kody shows review status as a reaction on GitHub, GitLab and Forgejo. Azure DevOps and Bitbucket have no reaction API, so the same status arrives as a comment, and the skipped and no-license signals are the ones that carry the comment on those platforms.
+
+## How the metering compares
+
+The billing unit is where these tools diverge, and it decides what you run out of first. Kodus sells per developer and lets reviews run unlimited on your key. CodeRabbit sells per developer and caps reviews per developer per hour. Qodo sells workspace credits with no per-user provisioning. Greptile sells prepaid credits at a flat price each. [How each tool meters agent volume](https://agentwrotethis.dev/blog/greptile-alternatives-how-each-tool-meters-agent-volume/) covers the longer version with the vendor pages linked.
+
+| Tool | Billing unit | What limits volume | Free tier | Self-hosting |
+| - | - | - | - | - |
+| Kodus | Per licensed developer, plus tokens on your own key | Feature caps by plan; reviews skip above 2,000 reviewable files | Free / Community: unlimited PRs on your key, 10 active Kody Rules, 3 plugins | Yes; Enterprise license unlocks paid features |
+| CodeRabbit | Per developer per month: $24/$30 Essentials, $48/$60 Team, $72/$90 Advanced (annual / month-to-month) | Reviews per developer per hour (5 Essentials, 8 Team, 10 Advanced, 12 Enterprise) and files per review (150 Essentials, 300 Team and above) | PR summarization only; code reviews via the VS Code extension and CLI | Enterprise only |
+| Qodo | Workspace credits, shared across the workspace | Credit balance; overage billed at the same per-credit rate up to a configured monthly cap | 14-day trial, up to 100 reviews a day | Enterprise; deployment options listed by the vendor |
+| Greptile | Prepaid credits, $1 each | Credits consumed per review: base 1, plus 3, apex 10, TREX 3 | Starter: 1 active developer, 50 credits per month | Enterprise |
+
+The practical read: if your queue grows because agents open more pull requests, a per-hour review cap is the constraint that bites, and a per-developer license with unlimited reviews is not. Kodus moves the constraint to features and to a 2,000-file ceiling. CodeRabbit's Free tier is worth reading carefully, because its one review is PR summarization, and code reviews on Free run through the VS Code extension and CLI rather than on the pull request. Copilot code review, for the comparison, is available on all paid Copilot plans and bills AI credits with selectable effort levels, which puts its cost per review in a different shape from a per-developer license. [What self-hosting an AI reviewer actually costs](https://agentwrotethis.dev/blog/what-self-hosting-ai-code-review-actually-costs/) covers the infrastructure side that none of these pricing pages include.
+
+## What the docs do not answer
+
+Three things stay unknown from the published pages. Enterprise pricing is quoted per account and not published, so the per-developer cost at that tier cannot be compared on the same basis as the others. The 2,000-file skip threshold has no documented way to raise it; the documented remedy is splitting the pull request. And there is no published per-review token cost for Kodus, only a calculator that estimates from usage, which means the model line in your bill depends on diff sizes and routing that only your own telemetry will show.
+
+## FAQ
+
+**Is Kodus free?**
+There is a Free plan and a Community Edition. Both allow unlimited pull requests and unlimited users on your own model key, with up to 10 active Kody Rules and up to 3 plugins running at a time. Self-hosted without a license key runs Community Edition with the same limits as Free.
+
+**Do I pay twice if I use BYOK?**
+Yes, in two places. You pay Kodus for the platform, which the pricing page lists at $10 per developer per month on Teams, and you pay your model provider for tokens. The pricing FAQ states Kodus takes no markup on tokens.
+
+**Does Kodus limit how many pull requests it reviews?**
+Not by count. Reviews and workspace members are unlimited on every plan. The binding limit is file count: a review is skipped when a pull request has more than 2,000 reviewable files, including files only a custom agent would review.
+
+**Can Kodus block a merge?**
+Only through one optional setting. Request changes on critical issues sets a Request Changes review when Kody finds a critical issue, and it is off by default and unavailable when GitLab is the only connected provider. The Kody Code Review check reports that a review ran and does not fail on findings, and automatic approval approves without ever merging.
